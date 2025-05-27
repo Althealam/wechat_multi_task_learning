@@ -31,3 +31,8 @@ data/test_a.csv
 data/test.csv
 data/user_action.csv
 data/submit_demo_初赛a.csv
+data/feed_embeddings.csv
+split_data/encoder.pkl
+split_data/test.csv
+split_data/train.csv
+split_data/val.csv
