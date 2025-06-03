@@ -1,0 +1,38 @@
+{
+    "dense": [
+        "feedid",
+        "device",
+        "forward",
+        "click_avatar",
+        "follow",
+        "favorite",
+        "play",
+        "stay",
+        "like",
+        "userid",
+        "videoplayseconds",
+        "authorid",
+        "read_comment",
+        "date_",
+        "comment"
+    ],
+    "sparse": {
+        "description_char": {
+            "type": "hash_bucket",
+            "hash_bucket_size": 45263,
+            "embedding_dim": 16,
+            "dtype": "object"
+        }
+    },
+    "sequence": {},
+    "feature_crossing": [
+        [
+            "userid",
+            "authorid"
+        ],
+        [
+            "device",
+            "feedid"
+        ]
+    ]
+}
