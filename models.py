@@ -1,4 +1,5 @@
 from tensorflow.keras.layers import *
+from tensorflow.keras.initializers import TruncatedNormal
 
 def MMoE_model(dense_features, sparse_features, varlen_features, encoder, task_names):
     # 输入层定义
