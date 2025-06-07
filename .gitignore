@@ -1,3 +1,4 @@
+*.pyc
 .vscode/launch.json
 config/embedding_feat_dict.json
 data/feed_embeddings.csv
@@ -20005,3 +20006,8 @@ tf-env/lib/python3.10/site-packages/tensorflow/python/data/kernel_tests/__pycach
 tf-env/lib/python3.10/site-packages/tensorflow/python/data/ops/__init__.py
 tf-env/lib/python3.10/site-packages/tensorflow/python/data/ops/__pycache__/__init__.cpython-310.pyc
 tf-env/lib/python3.10/site-packages/tensorflow/python/data/ops/__pycache__/batch_op.cpython-310.pyc
+__pycache__/utils.cpython-310.pyc
+__pycache__/model_config.cpython-310.pyc
+__pycache__/models.cpython-310.pyc
+__pycache__/utils.cpython-310.pyc
+__pycache__/models.cpython-310.pyc

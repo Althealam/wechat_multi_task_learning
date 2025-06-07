@@ -4,7 +4,7 @@ from tensorflow.keras.layers import *
 from tensorflow.keras.initializers import TruncatedNormal
 import numpy as np
 from tensorflow.keras.models import Model
-
+from model_config import dropout_rate, stddev, num_experts, expert_units
 
 def build_input_layers(dense_features, sparse_features, varlen_features, encoder, embedding_feat_dict):
     """
@@ -54,8 +54,6 @@ def process_features(inputs, dense_features, sparse_features, varlen_features, e
     sparse_embeddings = []
     for feat in sparse_features:
         vocab_size = embedding_feat_dict['sparse'][feat]['vocab_size']
-        # vocab_size = len(encoder[feat]) + 1
-        # 自适应嵌入维度（经验公式）
         emb_dim = embedding_feat_dict['sparse'][feat]['embedding_dim']
         emb = Embedding(vocab_size, emb_dim, name=f'emb_{feat}')(inputs[feat])
         # 展平为一维嵌入向量
@@ -67,7 +65,6 @@ def process_features(inputs, dense_features, sparse_features, varlen_features, e
     for feat in varlen_features:
         # 处理 vocab_size
         vocab_size = embedding_feat_dict['sequence'][feat]['vocab_size']
-        # vocab_size = len(encoder[feat]) + 1 if feat in encoder else 100  
         emb_dim = embedding_feat_dict['sequence'][feat]['embedding_dim']
         emb = Embedding(vocab_size, emb_dim, name=f'emb_{feat}')(inputs[feat])
         # 对变长序列做平均池化，压缩成固定长度
@@ -76,29 +73,8 @@ def process_features(inputs, dense_features, sparse_features, varlen_features, e
     
     return dense_embeddings, sparse_embeddings, varlen_embeddings
 
-def build_expert_network(concat_features, num_experts=4, expert_units=64):
-    """
-    构建 MMoE 的专家网络
-    :param concat_features: 拼接后的全局特征（来自 process_features 拼接结果）
-    :param num_experts: 专家数量（可调整）
-    :param expert_units: 每个专家隐藏层单元数（可调整）
-    :return: experts 列表，每个元素是专家网络输出
-    """
-    experts = []
-    for i in range(num_experts):
-        # 专家网络第一层
-        expert = Dense(expert_units, activation='relu', 
-                      kernel_initializer=TruncatedNormal(stddev=0.02),
-                      name=f'expert_{i}')(concat_features)
-        # 专家网络第二层（加深网络）
-        expert = Dense(expert_units, activation='relu',
-                      kernel_initializer=TruncatedNormal(stddev=0.02),
-                      name=f'expert_{i}_2')(expert)
-        experts.append(expert)
-    
-    return experts
 
-def build_expert_network(concat_features, num_experts=4, expert_units=64):
+def build_expert_network(concat_features, num_experts=num_experts, expert_units=expert_units):
     """
     构建 MMoE 的专家网络
     :param concat_features: 拼接后的全局特征（来自 process_features 拼接结果）
@@ -110,11 +86,11 @@ def build_expert_network(concat_features, num_experts=4, expert_units=64):
     for i in range(num_experts):
         # 专家网络第一层
         expert = Dense(expert_units, activation='relu', 
-                      kernel_initializer=TruncatedNormal(stddev=0.02),
+                      kernel_initializer=TruncatedNormal(stddev=stddev),
                       name=f'expert_{i}')(concat_features)
         # 专家网络第二层（加深网络）
         expert = Dense(expert_units, activation='relu',
-                      kernel_initializer=TruncatedNormal(stddev=0.02),
+                      kernel_initializer=TruncatedNormal(stddev=stddev),
                       name=f'expert_{i}_2')(expert)
         experts.append(expert)
     
@@ -151,11 +127,11 @@ def build_task_networks(concat_features, experts, task_names, num_experts=4):
         
         # 任务特定塔（两层全连接 + Dropout）
         tower = Dense(32, activation='relu',
-                     kernel_initializer=TruncatedNormal(stddev=0.02),
+                     kernel_initializer=TruncatedNormal(stddev=stddev),
                      name=f'tower_{task_name}_1')(task_input)
-        tower = Dropout(0.2)(tower)
+        tower = Dropout(dropout_rate)(tower)
         tower = Dense(16, activation='relu',
-                     kernel_initializer=TruncatedNormal(stddev=0.02),
+                     kernel_initializer=TruncatedNormal(stddev=stddev),
                      name=f'tower_{task_name}_2')(tower)
         
         # 任务输出（二分类用 sigmoid）
