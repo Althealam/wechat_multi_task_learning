@@ -12,3 +12,13 @@
 
 2025/6/7
 - 优化项目结构
+
+2025/6/9
+- 增加description（序列特征），可以用来考虑常见的DIN等处理序列特征的方式
+- 备注：
+* 加入了description后第一轮训练的AUC反而有所下降，可能是因为description很多都是噪声，或者是对description做下降，可能是因为d
+escription很多都是噪声，或者是对description做平均池化的效果一般
+* 在训练到第二个epoch的时候出现了跷跷板现象，也就是read_comment的AUC在涨，但是其他的click_avator, forward, like的AUC在下降，需要寻找解决方法
+- TODO：
+* 优化模型结构：对description这个序列特征使用GRU+Attention（DIEN）建模？
+* 解决跷跷板现象？

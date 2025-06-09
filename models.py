@@ -33,7 +33,7 @@ def build_input_layers(dense_features, sparse_features, varlen_features, encoder
     return inputs
 
 
-def process_features(inputs, dense_features, sparse_features, varlen_features, encoder, embedding_feat_dict):
+def process_features(inputs, dense_features, sparse_features, varlen_features, encoder, encoder_description, embedding_feat_dict):
     """
     处理输入特征，生成稠密、稀疏、变长特征的嵌入/处理结果
     :param inputs: build_input_layers 返回的 Input 字典
@@ -68,6 +68,7 @@ def process_features(inputs, dense_features, sparse_features, varlen_features, e
         emb_dim = embedding_feat_dict['sequence'][feat]['embedding_dim']
         emb = Embedding(vocab_size, emb_dim, name=f'emb_{feat}')(inputs[feat])
         # 对变长序列做平均池化，压缩成固定长度
+        ## TODO：这里为什么是用平均池化，可不可以用LSTM或者GRU来替换？？
         emb = GlobalAveragePooling1D()(emb)  
         varlen_embeddings.append(emb)
     
@@ -142,7 +143,7 @@ def build_task_networks(concat_features, experts, task_names, num_experts=4):
     return task_outputs
 
 
-def MMoE_model(dense_features, sparse_features, varlen_features, encoder, task_names, embedding_feat_dict):
+def MMoE_model(dense_features, sparse_features, varlen_features, encoder, encoder_description, task_names, embedding_feat_dict):
     """
     完整 MMoE 模型构建主函数（整合各模块）
     :param dense_features: 稠密特征列表
@@ -169,6 +170,7 @@ def MMoE_model(dense_features, sparse_features, varlen_features, encoder, task_n
         sparse_features, 
         varlen_features, 
         encoder, 
+        encoder_description,
         embedding_feat_dict
     )
     concat_features = Concatenate()(dense_emb + sparse_emb + varlen_emb)

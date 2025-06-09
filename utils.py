@@ -1,6 +1,7 @@
 import json
 import pandas as pd
 import numpy as np
+from features import dense_features, sparse_features, varlen_features
 
 def read_json_file(file_path):
     """读取JSON文件并返回其内容
@@ -36,14 +37,14 @@ def save_json_file(file_path, file):
         print("文件保存成功!")
 
 
-def generate_complete_embedding_config(df, encoder):
+def generate_complete_embedding_config(df, encoder, encoder_description):
     """生成包含dense、sparse和sequence的完整特征配置"""
     
     # ===================== 1. 给定特征类型 =====================
     # 稀疏特征
     sparse_features = ['userid', 'feedid', 'authorid', 'bgm_song_id', 'bgm_singer_id']
     # 变长序列特征
-    varlen_features = ['manual_tag_list','manual_keyword_list']
+    varlen_features = ['manual_tag_list','manual_keyword_list', 'description'] 
     # 稠密特征
     dense_features = ['videoplayseconds']
     
@@ -67,14 +68,24 @@ def generate_complete_embedding_config(df, encoder):
     
     # ===================== 4. 配置varlen_features =====================
     for feat in varlen_features:
-        vocab_size = len(encoder[feat]) + 1  # 词汇表大小，表示特征空间中唯一元素的总数，用于确定embedding层的维度
-        max_len = int(df[feat].apply(len).max()) # 变长序列的最大长度，也就是最长的列表中包含多少个元素
-        embed_dim = min(6, int(np.sqrt(vocab_size))) # 将离散特征映射到连续向量空间后的向量维度
-        config["sequence"][feat]={
-            "vocab_size": vocab_size, 
-            "max_len": max_len,
-            "embedding_dim": embed_dim
-        }
+        if feat!='description':
+            vocab_size = len(encoder[feat]) + 1  # 词汇表大小，表示特征空间中唯一元素的总数，用于确定embedding层的维度
+            max_len = int(df[feat].apply(len).max()) # 变长序列的最大长度，也就是最长的列表中包含多少个元素
+            embed_dim = min(6, int(np.sqrt(vocab_size))) # 将离散特征映射到连续向量空间后的向量维度
+            config["sequence"][feat]={
+                "vocab_size": vocab_size, 
+                "max_len": max_len,
+                "embedding_dim": embed_dim
+            }
+        else:
+            vocab_size = len(encoder_description[feat])+1
+            max_len = int(df[feat].apply(len).max())
+            embed_dim = min(6, int(np.sqrt(vocab_size)))
+            config["sequence"][feat]={
+                "vocab_size": vocab_size, 
+                "max_len": max_len,
+                "embedding_dim": embed_dim
+            }
     return config
 
 

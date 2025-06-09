@@ -10,7 +10,7 @@ sparse_features = ['userid',
                    'bgm_singer_id']
 
 varlen_features = ['manual_tag_list',
-                   'manual_keyword_list']
+                   'manual_keyword_list', 'description']
 
 dense_features = ['videoplayseconds']
 
