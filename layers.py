@@ -11,3 +11,13 @@ def _apply_attention(inputs):
     context = tf.keras.layers.Multiply()([inputs, attn_weights])
     context = tf.keras.layers.Lambda(lambda x: tf.reduce_sum(x, axis=1))(context)
     return context
+
+# 位置编码实现
+def positional_encoding(length, depth):
+    depth = depth/2
+    positions = tf.range(length)[:, tf.newaxis]
+    depths = tf.range(depth)[tf.newaxis, :]/depth
+    angle_rates = 1 / (10000**depths)
+    angle_rads = positions * angle_rates
+    pos_encoding = tf.concat([tf.sin(angle_rads), tf.cos(angle_rads)], -1)
+    return tf.cast(pos_encoding, tf.float32)

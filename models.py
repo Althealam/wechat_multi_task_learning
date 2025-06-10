@@ -5,11 +5,12 @@ from tensorflow.keras.initializers import TruncatedNormal
 import numpy as np
 from tensorflow.keras.models import Model
 from model_config import dropout_rate, stddev, num_experts, expert_units
-from layers import _apply_attention
 import importlib
+import tensorflow as tf
 import layers
 importlib.reload(layers)
-from tensorflow.keras.layers import Input, Embedding, LSTM, GRU, Bidirectional, Dense, Reshape, GlobalAveragePooling1D, Dropout
+from layers import _apply_attention, positional_encoding
+from tensorflow.keras.layers import Input, Embedding, LSTM, GRU, Bidirectional, Dense, Reshape, GlobalAveragePooling1D, Dropout, BatchNormalization, Add
 
 
 def build_input_layers(dense_features, sparse_features, varlen_features, embedding_feat_dict):
@@ -53,8 +54,10 @@ def process_features(inputs, dense_features, sparse_features, varlen_features, e
     # 稠密特征处理
     dense_embeddings = []
     for feat in dense_features:
+        dense_feat = inputs[feat]
+        dense_feat = BatchNormalization()(dense_feat)
         # 保持形状一致（适配后续拼接）
-        emb = Reshape((1,))(inputs[feat])  
+        emb = Reshape((1,))(dense_feat)  
         dense_embeddings.append(emb)
     
     # 稀疏特征嵌入
@@ -70,28 +73,31 @@ def process_features(inputs, dense_features, sparse_features, varlen_features, e
     # 变长序列特征处理
     varlen_embeddings = []
     for feat in varlen_features:
-        # 处理 vocab_size
         vocab_size = embedding_feat_dict['sequence'][feat]['vocab_size']
         emb_dim = embedding_feat_dict['sequence'][feat]['embedding_dim']
-        emb = Embedding(vocab_size, emb_dim, name=f'emb_{feat}')(inputs[feat])
-        # 对变长序列做平均池化，压缩成固定长度
-        if use_sequence_model=='avg_pool':
-            emb = GlobalAveragePooling1D()(emb)  
-        elif use_sequence_model=='lstm':
-            emb = LSTM(rnn_units)(emb)
-        elif use_sequence_model=='gru':
-            emb = GRU(rnn_units)(emb)
-        elif use_sequence_model=='bi_lstm':
-            # 双向LSTM
-            emb = Bidirectional(LSTM(rnn_units//2))(emb)
-        elif use_sequence_model=='lstm_attn':
-            lstm_out = LSTM(rnn_units, return_sequence=True, dropout=dropout_rate)(emb)
-            emb = _apply_attention(lstm_out)
-        elif use_sequence_model=='gru_attn':
-            gru_out = GRU(rnn_units, return_sequences=True, dropout=dropout_rate)(emb)
-            emb = _apply_attention(gru_out)
-        else:
-            raise ValueError(f"不支持的序列模型: {use_sequence_model}")
+        if feat=='description': # 只对description选择lstm, gru, bi_lstm；除了description之外的特征都选择平均池化
+            emb = Embedding(vocab_size, emb_dim, name=f'emb_{feat}')(inputs[feat])
+            # 对变长序列做平均池化，压缩成固定长度
+            if use_sequence_model=='avg_pool':
+                emb = GlobalAveragePooling1D()(emb)  
+            elif use_sequence_model=='lstm':
+                emb = LSTM(rnn_units)(emb)
+            elif use_sequence_model=='gru':
+                emb = GRU(rnn_units)(emb)
+            elif use_sequence_model=='bi_lstm':
+                # 双向LSTM
+                emb = Bidirectional(LSTM(rnn_units//2))(emb)
+            elif use_sequence_model=='lstm_attn':
+                lstm_out = LSTM(rnn_units, return_sequence=True, dropout=dropout_rate)(emb)
+                emb = _apply_attention(lstm_out)
+            elif use_sequence_model=='gru_attn':
+                gru_out = GRU(rnn_units, return_sequences=True, dropout=dropout_rate)(emb)
+                emb = _apply_attention(gru_out)
+            else:
+                raise ValueError(f"不支持的序列模型: {use_sequence_model}")
+        else: # 除了description之外的特征用平均池化
+            emb = Embedding(vocab_size, emb_dim, name=f'emb_{feat}')(inputs[feat])
+            emb = GlobalAveragePooling1D()(emb) 
         varlen_embeddings.append(emb)
     
     return dense_embeddings, sparse_embeddings, varlen_embeddings
