@@ -1,3 +1,17 @@
+## 项目简介
+该项目数据来自2021微信大数据挑战赛的数据集。
+本项目主要是为了学习多目标建模和TF的常见训练方式（主要是在实习的过程中发现对TF的熟练度不够T_T，所以特地弄一个项目来学习）
+
+## 项目结构
+- data_preprocess_and_data_engineering：数据预处理和数据工程
+- models：模型代码
+- layers：自定义的层
+- model_config：模型参数
+- utils：自定义的工具函数
+- MMoE.ipynb：MMoE模型的训练代码
+- features.py：模型使用的特征
+
+
 ## 更新记录
 2025/5/27:
 - 跑通PLE和MMoE，目前还存在报错需要排查
@@ -22,3 +36,7 @@ escription很多都是噪声，或者是对description做平均池化的效果�
 - TODO：
 * 优化模型结构：对description这个序列特征使用GRU+Attention（DIEN）建模？
 * 解决跷跷板现象？
+
+2025/6/10
+- 优化模型结构：对description使用GRU+Attention进行embedding处理，其他的sequence_feature还是使用平均池化
+- TODO：创建一个新分支，处理成tf常见的训练模式（刚好学习一下tf的训练，数据弄成tfrecord而不是csv）
