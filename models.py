@@ -5,8 +5,14 @@ from tensorflow.keras.initializers import TruncatedNormal
 import numpy as np
 from tensorflow.keras.models import Model
 from model_config import dropout_rate, stddev, num_experts, expert_units
+from layers import _apply_attention
+import importlib
+import layers
+importlib.reload(layers)
+from tensorflow.keras.layers import Input, Embedding, LSTM, GRU, Bidirectional, Dense, Reshape, GlobalAveragePooling1D, Dropout
 
-def build_input_layers(dense_features, sparse_features, varlen_features, encoder, embedding_feat_dict):
+
+def build_input_layers(dense_features, sparse_features, varlen_features, embedding_feat_dict):
     """
     为稠密、稀疏、变长特征分别创建 Input 层
     :param dense_features: 稠密特征列表，如 ['age', 'income']
@@ -33,7 +39,7 @@ def build_input_layers(dense_features, sparse_features, varlen_features, encoder
     return inputs
 
 
-def process_features(inputs, dense_features, sparse_features, varlen_features, encoder, encoder_description, embedding_feat_dict):
+def process_features(inputs, dense_features, sparse_features, varlen_features, embedding_feat_dict, use_sequence_model='avg_pool', rnn_units=64, dropout_rate=0.1):
     """
     处理输入特征，生成稠密、稀疏、变长特征的嵌入/处理结果
     :param inputs: build_input_layers 返回的 Input 字典
@@ -41,6 +47,7 @@ def process_features(inputs, dense_features, sparse_features, varlen_features, e
     :param sparse_features: 稀疏特征列表
     :param varlen_features: 变长序列特征列表
     :param encoder: 特征编码字典（原代码依赖）
+    :param use_sequence_model: 对变长序列特征的处理方式
     :return: 处理后的特征列表（dense_embeddings + sparse_embeddings + varlen_embeddings）
     """
     # 稠密特征处理
@@ -68,8 +75,23 @@ def process_features(inputs, dense_features, sparse_features, varlen_features, e
         emb_dim = embedding_feat_dict['sequence'][feat]['embedding_dim']
         emb = Embedding(vocab_size, emb_dim, name=f'emb_{feat}')(inputs[feat])
         # 对变长序列做平均池化，压缩成固定长度
-        ## TODO：这里为什么是用平均池化，可不可以用LSTM或者GRU来替换？？
-        emb = GlobalAveragePooling1D()(emb)  
+        if use_sequence_model=='avg_pool':
+            emb = GlobalAveragePooling1D()(emb)  
+        elif use_sequence_model=='lstm':
+            emb = LSTM(rnn_units)(emb)
+        elif use_sequence_model=='gru':
+            emb = GRU(rnn_units)(emb)
+        elif use_sequence_model=='bi_lstm':
+            # 双向LSTM
+            emb = Bidirectional(LSTM(rnn_units//2))(emb)
+        elif use_sequence_model=='lstm_attn':
+            lstm_out = LSTM(rnn_units, return_sequence=True, dropout=dropout_rate)(emb)
+            emb = _apply_attention(lstm_out)
+        elif use_sequence_model=='gru_attn':
+            gru_out = GRU(rnn_units, return_sequences=True, dropout=dropout_rate)(emb)
+            emb = _apply_attention(gru_out)
+        else:
+            raise ValueError(f"不支持的序列模型: {use_sequence_model}")
         varlen_embeddings.append(emb)
     
     return dense_embeddings, sparse_embeddings, varlen_embeddings
@@ -143,7 +165,7 @@ def build_task_networks(concat_features, experts, task_names, num_experts=4):
     return task_outputs
 
 
-def MMoE_model(dense_features, sparse_features, varlen_features, encoder, encoder_description, task_names, embedding_feat_dict):
+def MMoE_model(dense_features, sparse_features, varlen_features, task_names, embedding_feat_dict):
     """
     完整 MMoE 模型构建主函数（整合各模块）
     :param dense_features: 稠密特征列表
@@ -159,7 +181,6 @@ def MMoE_model(dense_features, sparse_features, varlen_features, encoder, encode
         dense_features, 
         sparse_features, 
         varlen_features, 
-        encoder, 
         embedding_feat_dict
     )
     
@@ -169,9 +190,8 @@ def MMoE_model(dense_features, sparse_features, varlen_features, encoder, encode
         dense_features, 
         sparse_features, 
         varlen_features, 
-        encoder, 
-        encoder_description,
-        embedding_feat_dict
+        embedding_feat_dict,
+        use_sequence_model = 'gru_attn'
     )
     concat_features = Concatenate()(dense_emb + sparse_emb + varlen_emb)
     
