@@ -11,7 +11,7 @@ import layers
 importlib.reload(layers)
 from layers import _apply_attention, positional_encoding
 from tensorflow.keras.layers import Input, Embedding, LSTM, GRU, Bidirectional, Dense, Reshape, GlobalAveragePooling1D, Dropout, BatchNormalization, Add
-
+from model_config import dropout_rate, stddev, num_experts, expert_units
 
 def build_input_layers(dense_features, sparse_features, varlen_features, embedding_feat_dict):
     """
@@ -126,7 +126,7 @@ def build_expert_network(concat_features, num_experts=num_experts, expert_units=
     return experts
 
 
-def build_task_networks(concat_features, experts, task_names, num_experts=4):
+def build_task_networks(concat_features, experts, task_names, num_experts=num_experts):
     """
     为每个任务构建门控 + 任务塔
     :param concat_features: 全局拼接特征
