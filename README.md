@@ -39,4 +39,6 @@ escription很多都是噪声，或者是对description做平均池化的效果�
 
 2025/6/10
 - 优化模型结构：对description使用GRU+Attention进行embedding处理，其他的sequence_feature还是使用平均池化
-- TODO：创建一个新分支，处理成tf常见的训练模式（刚好学习一下tf的训练，数据弄成tfrecord而不是csv）
+
+2025/6/11
+- 整理该项目知识点

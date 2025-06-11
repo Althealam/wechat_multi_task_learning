@@ -1,7 +1,5 @@
 from tensorflow.keras.layers import *
 from tensorflow.keras.initializers import TruncatedNormal
-from tensorflow.keras.layers import *
-from tensorflow.keras.initializers import TruncatedNormal
 import numpy as np
 from tensorflow.keras.models import Model
 from model_config import dropout_rate, stddev, num_experts, expert_units
