@@ -12,6 +12,8 @@ importlib.reload(layers)
 from layers import _apply_attention, positional_encoding
 from tensorflow.keras.layers import Input, Embedding, LSTM, GRU, Bidirectional, Dense, Reshape, GlobalAveragePooling1D, Dropout, BatchNormalization, Add
 from model_config import dropout_rate, stddev, num_experts, expert_units
+import matplotlib.pyplot as plt
+
 
 def build_input_layers(dense_features, sparse_features, varlen_features, embedding_feat_dict):
     """
@@ -39,8 +41,34 @@ def build_input_layers(dense_features, sparse_features, varlen_features, embeddi
     
     return inputs
 
+def feature_attention(feature_list, feature_names, name=None):
+    if not feature_list:
+        raise ValueError("feature_list不能为空")
+    
+    # 拼接所有特征
+    concat_feat = Concatenate()(feature_list)
+    # batch_size = tf.shape(concat_feat)[0]
+    feat_num = len(feature_list)
+    
+    # 方法：使用特征数量作为Attention层的输出维度
+    attention_weights = Dense(feat_num, activation='softmax', name=f'{name}_attn_weights')(concat_feat)
+    attention_weights = Reshape((feat_num, 1))(attention_weights)  # 形状变为[batch, feat_num, 1]
+    
+    # 对每个特征应用注意力权重
+    weighted_features = []
+    for i, feat in enumerate(feature_list):
+        # 扩展特征维度以匹配注意力权重
+        feat_expanded = Reshape((1, feat.shape[-1]))(feat)
+        # 广播机制实现权重相乘
+        weighted_feat = Multiply()([feat_expanded, attention_weights[:, i:i+1, :]])
+        weighted_features.append(weighted_feat)
+    
+    # 合并加权特征
+    weighted_sum = Concatenate()(weighted_features)
+    
+    return weighted_sum, attention_weights
 
-def process_features(inputs, dense_features, sparse_features, varlen_features, embedding_feat_dict, use_sequence_model='avg_pool', rnn_units=64, dropout_rate=0.1):
+def process_features(inputs, dense_features, sparse_features, varlen_features, embedding_feat_dict, use_sequence_model='avg_pool', rnn_units=64, dropout_rate=0.1, use_feature_attn=True):
     """
     处理输入特征，生成稠密、稀疏、变长特征的嵌入/处理结果
     :param inputs: build_input_layers 返回的 Input 字典
@@ -99,8 +127,29 @@ def process_features(inputs, dense_features, sparse_features, varlen_features, e
             emb = Embedding(vocab_size, emb_dim, name=f'emb_{feat}')(inputs[feat])
             emb = GlobalAveragePooling1D()(emb) 
         varlen_embeddings.append(emb)
+
+    if isinstance(sparse_features, dict):
+        sparse_feature_names = list(sparse_features.keys())  # 提取字典的键作为特征名
+    else:
+        sparse_feature_names = sparse_features
     
-    return dense_embeddings, sparse_embeddings, varlen_embeddings
+    if isinstance(varlen_features, dict):
+        varlen_feature_names = list(varlen_features.keys())
+    else:
+        varlen_feature_names = varlen_features
+    
+    all_features = dense_embeddings + sparse_embeddings + varlen_embeddings
+    feature_names = dense_features + sparse_feature_names + varlen_feature_names
+
+    if use_feature_attn:
+        print("进行attention")
+        all_features = dense_embeddings+sparse_embeddings+varlen_embeddings
+        concat_features, feature_attn_weights = feature_attention(all_features, feature_names, name='feature_attention')
+    else:
+        concat_features = Concatenate()(dense_embeddings + sparse_embeddings + varlen_embeddings)
+        feature_attn_weights = None
+    
+    return dense_embeddings, sparse_embeddings, varlen_embeddings, concat_features, feature_attn_weights, feature_names
 
 
 def build_expert_network(concat_features, num_experts=num_experts, expert_units=expert_units):
@@ -191,14 +240,16 @@ def MMoE_model(dense_features, sparse_features, varlen_features, task_names, emb
     )
     
     # 2. 处理特征并拼接
-    dense_emb, sparse_emb, varlen_emb = process_features(
+    dense_emb, sparse_emb, varlen_emb, concat_features, attn_weights, feature_names = process_features(
         inputs, 
         dense_features, 
         sparse_features, 
         varlen_features, 
         embedding_feat_dict,
-        use_sequence_model = 'gru_attn'
+        use_sequence_model='avg_pool',
+        use_feature_attn=True  # 开启特征注意力
     )
+    
     concat_features = Concatenate()(dense_emb + sparse_emb + varlen_emb)
     
     # 3. 构建专家网络

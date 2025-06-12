@@ -1,6 +1,6 @@
 ## 项目简介
 该项目数据来自2021微信大数据挑战赛的数据集。
-本项目主要是为了学习多目标建模和TF的常见训练方式（主要是在实习的过程中发现对TF的熟练度不够T_T，所以特地弄一个项目来学习）
+本项目主要是为了学习多任务学习，包括MMoE和PLE
 
 ## 项目结构
 - data_preprocess_and_data_engineering：数据预处理和数据工程
@@ -40,3 +40,7 @@ escription很多都是噪声，或者是对description做平均池化的效果�
 2025/6/10
 - 优化模型结构：对description使用GRU+Attention进行embedding处理，其他的sequence_feature还是使用平均池化
 - TODO：创建一个新分支，处理成tf常见的训练模式（刚好学习一下tf的训练，数据弄成tfrecord而不是csv）
+
+2025/6/12
+- 在模型中加入Attention层，查看各个特征的重要性程度。如果description的重要性程度比较低的话需要去掉
+- TODO：训练1个epoch，对比MMoE和PLE的模型效果
