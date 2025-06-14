@@ -13,9 +13,11 @@
 
 import pandas as pd
 import numpy as np
-import os, copy, importlib, feature_utils
+import os, copy, importlib, feature_utils, feature_embedding
 from feature_utils import *
+from feature_embedding import *
 importlib.reload(feature_utils)
+importlib.reload(feature_embedding)
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 pd.set_option('display.max_columns', None)
 
@@ -38,11 +40,26 @@ def preprocess_data():
     feed = preprocess_feed(feed)
     feed = preprocess_videoplayseconds(feed)
     # print("feed.head:", feed.head(5))
+    # print("feed的列:", feed.columns)
+    # print("action的列:", action.columns)
     data = pd.merge(action, feed, on='feedid', how='right')
-    print("data的信息:", data.info())
-    user_features, video_features = generate_statistical_features(data)
-    print("user_features的信息:", user_features.info())
-    print("video_features:", video_features.info())
+    # data.to_csv('./data/data.csv') # 注意不要保存为user_action
+    # print("data的信息:", data.head())
+    data, user_features, video_features = generate_statistical_features(data)
+    # print("user_features:", user_features.head(5))
+    print("data:\n")
+    print(data.info())
+    print("user_features:\n")
+    print(user_features.info())
+    print("video_features:\n")
+    print(video_features.info())
+    
+    return data, user_features, video_features
 
+def get_embedding():
+    data, user_features, video_features = preprocess_data()
+    # data = pd.read_csv('./data/user_action.csv')
+    print("data:\n", data.head(5))
+    deepwalk_feed_embedding = generate_deepwalk_embedding(data, video_features)
 
-preprocess_data()
+get_embedding()

@@ -57,7 +57,7 @@ def preprocess_feed(feed):
         
         f_length = np.array(list(map(len, f_list)))
         max_len = max(f_length)
-        print(f'{f} 字段最长的取值序列长度为 {max_len}')
+        # print(f'{f} 字段最长的取值序列长度为 {max_len}')
         
         # 确保pad_sequences输入是列表的列表
         padded_sequences = pad_sequences(f_list, maxlen=max_len, padding='post')
@@ -90,7 +90,7 @@ def preprocess_feed(feed):
         
         f_length = np.array(list(map(len, f_list)))
         max_len = max(f_length)
-        print(f'{f} 字段最长的取值序列长度为 {max_len}')
+        # print(f'{f} 字段最长的取值序列长度为 {max_len}')
         
         # 确保pad_sequences输入是列表的列表
         padded_sequences = pad_sequences(f_list, maxlen=max_len, padding='post')
@@ -140,7 +140,7 @@ def preprocess_feed(feed):
         
         # 计算解释方差比例（评估降维效果）
         explained_variance = svd.explained_variance_ratio_.sum()
-        print(f"{field} SVD降维后解释方差比例: {explained_variance:.4f}")
+        # print(f"{field} SVD降维后解释方差比例: {explained_variance:.4f}")
         
         # 将SVD结果转换为DataFrame
         svd_df = pd.DataFrame(
@@ -166,9 +166,9 @@ def preprocess_videoplayseconds(feed):
     做离散化是因为播放时长有长尾分布，分桶后每个区间的样本量均匀，避免模型被超长视频主导
     """
     field = 'videoplayseconds'
-    # 1. 查看数据分布
-    print(f"\n{field} 数据分布统计：")
-    print(feed[field].describe())
+    # # 1. 查看数据分布
+    # print(f"\n{field} 数据分布统计：")
+    # print(feed[field].describe())
     
     # 2. 定义分桶策略
     quantiles = [0, 0.2, 0.4, 0.6, 0.8, 1.0]  # 0%, 20%, 40%, 60%, 80%, 100%分位数
@@ -176,7 +176,7 @@ def preprocess_videoplayseconds(feed):
     
     # 3. 计算分位数边界
     boundaries = feed[field].quantile(quantiles).tolist()
-    print(f"{field} 分桶边界：{boundaries}")
+    # print(f"{field} 分桶边界：{boundaries}")
     
     # 4. 执行分桶
     feed[f"{field}_bin"] = pd.cut(
@@ -188,8 +188,8 @@ def preprocess_videoplayseconds(feed):
     
     # 5. 查看分桶结果分布
     bucket_counts = feed[f"{field}_bin"].value_counts()
-    print(f"\n{field} 分桶结果分布：")
-    print(bucket_counts)
+    # print(f"\n{field} 分桶结果分布：")
+    # print(bucket_counts)
     
     # 6. 转为数值编码（便于模型处理）
     oe = OrdinalEncoder()
@@ -205,6 +205,7 @@ def preprocess_videoplayseconds(feed):
 
 def generate_statistical_features(data):
     """生成用户和视频维度的统计特征（基于数字日期）"""
+    print("开始生成统计特征")
     # 获取数据中的最大日期作为参考点
     max_date = data['date_'].max()
     
@@ -284,7 +285,14 @@ def generate_statistical_features(data):
     
     # 合并视频维度特征
     video_features = video_coverage
+    # print("video_features:", video_features)
     for df in [video_exposure, video_history, video_complete_rate, video_conversion]:
+        # print(df.columns)
         video_features = pd.merge(video_features, df, on='feedid', how='right')
-    
-    return user_features, video_features
+
+    # ======== 存储数据 =========
+    os.makedirs('/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/features', exist_ok=True)
+    data.to_csv('./data/data.csv', index=False)
+    video_features.to_csv('./data/features/feed_features.csv', index=False)
+    user_features.to_csv('./data/features/user_features.csv', index=False)
+    return data, user_features, video_features
