@@ -103,7 +103,7 @@ def preprocess_feed(feed):
         reverse_machine[f] = {v: k for k, v in key2index_machine.items()}
 
     # （1.3）创建文件夹并保存编码字典
-    os.makedirs('/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/encoders', exist_ok=True)
+    os.makedirs('/Users/bytedance/Desktop/wechat_MTL/data/encoders', exist_ok=True)
     joblib.dump(encoder_machine, './data/encoders/encoder_machine.txt')
     joblib.dump(encoder_manual, './data/encoders/encoder_manual.txt')
     
@@ -150,12 +150,12 @@ def preprocess_feed(feed):
         feed = pd.concat([feed, svd_df], axis=1)
         
         # 保存SVD模型
-        os.makedirs('/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/encoders', exist_ok=True)
-        with open(f'/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/encoders/svd_{field}.pkl', 'wb') as f:
+        os.makedirs('/Users/bytedance/Desktop/wechat_MTL/data/encoders', exist_ok=True)
+        with open(f'/Users/bytedance/Desktop/wechat_MTL/data/encoders/svd_{field}.pkl', 'wb') as f:
             pickle.dump(svd, f)
         
         # 保存TF-IDF向量器
-        with open(f'/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/encoders/tfidf_{field}.pkl', 'wb') as f:
+        with open(f'/Users/bytedance/Desktop/wechat_MTL/data/encoders/tfidf_{field}.pkl', 'wb') as f:
             pickle.dump(vectorizer, f)
     return feed
 
@@ -196,8 +196,8 @@ def preprocess_videoplayseconds(feed):
     feed[f"{field}_bin_encoded"] = oe.fit_transform(feed[[f"{field}_bin"]])
     
     # 7. 保存编码器
-    os.makedirs('/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/encoders', exist_ok=True)
-    with open(f'/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/encoders/ordinal_{field}.pkl', 'wb') as f:
+    os.makedirs('/Users/bytedance/Desktop/wechat_MTL/data/encoders', exist_ok=True)
+    with open(f'/Users/bytedance/Desktop/wechat_MTL/data/encoders/ordinal_{field}.pkl', 'wb') as f:
         pickle.dump(oe, f)
     
     return feed 
@@ -291,7 +291,7 @@ def generate_statistical_features(data):
         video_features = pd.merge(video_features, df, on='feedid', how='right')
 
     # ======== 存储数据 =========
-    os.makedirs('/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/features', exist_ok=True)
+    os.makedirs('/Users/bytedance/Desktop/wechat_MTL/data/features', exist_ok=True)
     data.to_csv('./data/data.csv', index=False)
     video_features.to_csv('./data/features/feed_features.csv', index=False)
     user_features.to_csv('./data/features/user_features.csv', index=False)

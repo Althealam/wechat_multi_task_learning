@@ -56,7 +56,7 @@ def generate_deepwalk_embedding(data, video_features, embed_dim=128, walks_per_n
     embed_df['feedid'] = unique_feeds
     
     # 5. 保存Embedding
-    os.makedirs('/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/embeddings', exist_ok=True)
+    os.makedirs('/Users/bytedance/Desktop/wechat_MTL/data/embeddings', exist_ok=True)
     embed_df.to_csv('./data/embeddings/deepwalk_feed_embedding.csv', index=False)
     
     print("DeepWalk Embedding生成完成")

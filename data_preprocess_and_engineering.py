@@ -33,9 +33,9 @@ merge_features = ['feedid', 'authorid', 'videoplayseconds', 'bgm_song_id', 'bgm_
 
 
 def preprocess_data():
-    feed = pd.read_csv('/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/feed_info.csv')
-    action = pd.read_csv('/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/user_action.csv')
-    test = pd.read_csv('/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/test_a.csv')
+    feed = pd.read_csv('/Users/bytedance/Desktop/wechat_MTL/data/feed_info.csv')
+    action = pd.read_csv('/Users/bytedance/Desktop/wechat_MTL/data/user_action.csv')
+    test = pd.read_csv('/Users/bytedance/Desktop/wechat_MTL/data/test_a.csv')
 
     feed = preprocess_feed(feed)
     feed = preprocess_videoplayseconds(feed)
