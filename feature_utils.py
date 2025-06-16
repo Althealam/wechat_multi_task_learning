@@ -295,4 +295,5 @@ def generate_statistical_features(data):
     data.to_csv('./data/data.csv', index=False)
     video_features.to_csv('./data/features/feed_features.csv', index=False)
     user_features.to_csv('./data/features/user_features.csv', index=False)
+    print("数据存储成功!")
     return data, user_features, video_features

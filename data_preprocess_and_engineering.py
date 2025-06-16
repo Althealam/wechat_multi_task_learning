@@ -33,20 +33,18 @@ merge_features = ['feedid', 'authorid', 'videoplayseconds', 'bgm_song_id', 'bgm_
 
 
 def preprocess_data():
-    feed = pd.read_csv('/Users/bytedance/Desktop/wechat_MTL/data/feed_info.csv')
-    action = pd.read_csv('/Users/bytedance/Desktop/wechat_MTL/data/user_action.csv')
-    test = pd.read_csv('/Users/bytedance/Desktop/wechat_MTL/data/test_a.csv')
+    feed = pd.read_csv('/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/feed_info.csv')
+    action = pd.read_csv('/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/user_action.csv')
+    test = pd.read_csv('/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/test_a.csv')
 
     feed = preprocess_feed(feed)
     feed = preprocess_videoplayseconds(feed)
-    # print("feed.head:", feed.head(5))
-    # print("feed的列:", feed.columns)
-    # print("action的列:", action.columns)
     data = pd.merge(action, feed, on='feedid', how='right')
-    # data.to_csv('./data/data.csv') # 注意不要保存为user_action
     # print("data的信息:", data.head())
     data, user_features, video_features = generate_statistical_features(data)
-    # print("user_features:", user_features.head(5))
+    # data = pd.read_csv('./data/data.csv')
+    # video_features = pd.read_csv('./data/feed_features.csv')
+    # user_features = pd.read_csv('./data/user_features.csv')
     print("data:\n")
     print(data.info())
     print("user_features:\n")
@@ -57,9 +55,11 @@ def preprocess_data():
     return data, user_features, video_features
 
 def get_embedding():
-    data, user_features, video_features = preprocess_data()
-    # data = pd.read_csv('./data/user_action.csv')
-    print("data:\n", data.head(5))
+    # data, user_features, video_features = preprocess_data()
+    data = pd.read_csv('./data/data.csv')
+    data = data.dropna(subset=['userid', 'feedid'])
+    video_features = pd.read_csv('./data/features/feed_features.csv')
+    user_features = pd.read_csv('./data/features/user_features.csv')
     deepwalk_feed_embedding = generate_deepwalk_embedding(data, video_features)
 
 get_embedding()
