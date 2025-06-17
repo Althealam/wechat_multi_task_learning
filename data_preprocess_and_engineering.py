@@ -60,6 +60,28 @@ def get_embedding():
     data = data.dropna(subset=['userid', 'feedid'])
     video_features = pd.read_csv('./data/features/feed_features.csv')
     user_features = pd.read_csv('./data/features/user_features.csv')
-    deepwalk_feed_embedding = generate_deepwalk_embedding(data, video_features)
+    
+    # ========= 处理feed的embeddings ========
+    print("================== 开始处理feed的embeddings ================")
+    # TODO: 下面这段代码的注释需要取掉
+    # deepwalk_feed_embedding = generate_deepwalk_embedding(data, video_features)
+    # 处理deepwalk_feed_embedding的格式
+    deepwalk_feed_embedding = pd.read_csv('./data/embeddings/deepwalk_feed_embedding.csv')
+    def str_to_array(emb_str):
+        return np.array([float(num) for num in emb_str.strip('[]').split()])
+    deepwalk_feed_embedding['deepwalk_embedding']=deepwalk_feed_embedding['deepwalk_embedding'].apply(str_to_array)
+    deepwalk_feed_embedding.to_csv('./data/embeddings/deepwalk_embedding_transform.csv', index=False)
+
+    # 处理feed_embeddings的格式
+    feed_embeddings = pd.read_csv('./data/feed_embeddings.csv')
+    feed_embeddings['feed_embedding'] = feed_embeddings['feed_embedding'].apply(
+        lambda x: [s for s in x.split(' ') if s.strip() != '']
+    )
+    feed_embeddings['feed_embedding'] = feed_embeddings['feed_embedding'].apply(
+        lambda x: np.array([float(num) for num in x])
+    )
+    feed_embeddings.to_csv('./data/embeddings/feed_embedding_transform.csv', index=False)  
+
+    concat_feed_embeddings = concat_feed_embedding(deepwalk_feed_embedding, feed_embeddings, mode='attention')
 
 get_embedding()
