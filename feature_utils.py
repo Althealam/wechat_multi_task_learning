@@ -1,3 +1,6 @@
+"""
+这段代码是特征的处理函数
+"""
 import pandas as pd
 import numpy as np
 import os, copy, pickle, joblib
@@ -103,9 +106,9 @@ def preprocess_feed(feed):
         reverse_machine[f] = {v: k for k, v in key2index_machine.items()}
 
     # （1.3）创建文件夹并保存编码字典
-    os.makedirs('/Users/bytedance/Desktop/wechat_MTL/data/encoders', exist_ok=True)
-    joblib.dump(encoder_machine, './data/encoders/encoder_machine.txt')
-    joblib.dump(encoder_manual, './data/encoders/encoder_manual.txt')
+    os.makedirs('/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/encoders', exist_ok=True)
+    joblib.dump(encoder_machine, '/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/encoders/encoder_machine.txt')
+    joblib.dump(encoder_manual, '/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/encoders/encoder_manual.txt')
     
     # （2）使用tf-idf处理
      # ========计算TF-IDF特征========
@@ -150,12 +153,12 @@ def preprocess_feed(feed):
         feed = pd.concat([feed, svd_df], axis=1)
         
         # 保存SVD模型
-        os.makedirs('/Users/bytedance/Desktop/wechat_MTL/data/encoders', exist_ok=True)
-        with open(f'/Users/bytedance/Desktop/wechat_MTL/data/encoders/svd_{field}.pkl', 'wb') as f:
+        os.makedirs('/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/encoders', exist_ok=True)
+        with open(f'/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/encoders/svd_{field}.pkl', 'wb') as f:
             pickle.dump(svd, f)
         
         # 保存TF-IDF向量器
-        with open(f'/Users/bytedance/Desktop/wechat_MTL/data/encoders/tfidf_{field}.pkl', 'wb') as f:
+        with open(f'/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/encoders/tfidf_{field}.pkl', 'wb') as f:
             pickle.dump(vectorizer, f)
     return feed
 
@@ -196,8 +199,8 @@ def preprocess_videoplayseconds(feed):
     feed[f"{field}_bin_encoded"] = oe.fit_transform(feed[[f"{field}_bin"]])
     
     # 7. 保存编码器
-    os.makedirs('/Users/bytedance/Desktop/wechat_MTL/data/encoders', exist_ok=True)
-    with open(f'/Users/bytedance/Desktop/wechat_MTL/data/encoders/ordinal_{field}.pkl', 'wb') as f:
+    os.makedirs('/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/encoders', exist_ok=True)
+    with open(f'/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/encoders/ordinal_{field}.pkl', 'wb') as f:
         pickle.dump(oe, f)
     
     return feed 
@@ -238,7 +241,7 @@ def generate_statistical_features(data):
             if col[0] == 'userid' and col[1] == '':
                 new_columns.append('userid')
             else:
-                new_columns.append(f"{col[0]}_{col[1]}")
+                new_columns.append(f"user_{col[0]}_{col[1]}")
         user_history.columns = new_columns
         
     # 视频维度：过去7天内（date >= max_date-7）每个行为的统计量
@@ -249,7 +252,7 @@ def generate_statistical_features(data):
             if col[0] == 'feedid' and col[1] == '':
                 new_columns.append('feedid')
             else:
-                new_columns.append(f"{col[0]}_{col[1]}")
+                new_columns.append(f"feed_{col[0]}_{col[1]}")
         video_history.columns = new_columns    
     # ======== 完播率特征 ========
     # 计算每个播放记录是否完播（播放时长 >= 视频时长）
@@ -291,9 +294,67 @@ def generate_statistical_features(data):
         video_features = pd.merge(video_features, df, on='feedid', how='right')
 
     # ======== 存储数据 =========
-    os.makedirs('/Users/bytedance/Desktop/wechat_MTL/data/features', exist_ok=True)
-    data.to_csv('./data/data.csv', index=False)
-    video_features.to_csv('./data/features/feed_features.csv', index=False)
-    user_features.to_csv('./data/features/user_features.csv', index=False)
-    print("数据存储成功!")
+    os.makedirs('/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/features', exist_ok=True)
+    data.to_csv('/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/data.csv', index=False)
+    video_features.to_csv('/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/features/feed_features.csv', index=False)
+    user_features.to_csv('/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/features/user_features.csv', index=False)
     return data, user_features, video_features
+
+
+def build_user_history_sequences(data):
+    """用户的历史行为序列建模"""
+    targets = ["read_comment", "like", "click_avatar", "forward", "favorite", "comment", "follow"]
+
+    user_history = {}
+    # 按用户 ID 分组
+    grouped = data.groupby('userid')
+    
+    for userid, group in grouped:
+        # 按 date_ 对用户记录进行排序
+        group = group.sort_values(by='date_')
+        
+        # 初始化 5 种历史队列
+        target_behavior_queues = {target: [] for target in targets}
+        interactive_history = []
+        non_interactive_history = []
+        finish_history = []
+        unfinish_history = []
+        daily_show_history = {}  # 改为字典，按日期存储feed
+        
+        # 遍历用户的每条记录
+        for index, row in group.iterrows():
+            date = row['date_']
+            # 7 个目标行为分别对应的历史队列
+            for target in targets:
+                if row[target] == 1:
+                    target_behavior_queues[target].append(row['feedid'])
+            
+            # 有交互行为的历史队列
+            if any(row[target] == 1 for target in targets):
+                interactive_history.append(row['feedid'])
+            else:
+                # 展现但是没有触发交互行为的历史队列
+                non_interactive_history.append(row['feedid'])
+            
+            # Finish 和 UnFinish 的历史队列
+            is_complete = row['stay'] >= row['videoplayseconds']
+            if is_complete:
+                finish_history.append(row['feedid'])
+            else:
+                unfinish_history.append(row['feedid'])
+            
+            # 用户当天展现视频队列
+            if date not in daily_show_history:
+                daily_show_history[date] = []
+            daily_show_history[date].append(row['feedid'])
+        
+        user_history[userid] = {
+            'target_behavior_queues': target_behavior_queues,
+            'interactive_history': interactive_history,
+            'non_interactive_history': non_interactive_history,
+            'finish_history': finish_history,
+            'unfinish_history': unfinish_history,
+            'daily_show_history': daily_show_history
+        }
+
+    return user_history
