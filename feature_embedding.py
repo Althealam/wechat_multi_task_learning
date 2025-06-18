@@ -274,3 +274,62 @@ def concat_feed_embedding(deepwalk_feed_embedding, feed_embeddings, mode):
         return dual_branch_network_fusion(deepwalk_feed_embedding, feed_embeddings)
     else:
         raise ValueError("不支持的融合模式，请选择 'concat', 'attention' 或 'dual_branch'")
+import pandas as pd
+
+def build_user_history_sequences(data):
+    """用户的历史行为序列建模"""
+    targets = ["read_comment", "like", "click_avatar", "forward", "favorite", "comment", "follow"]
+
+    user_history = {}
+    # 按用户 ID 分组
+    grouped = data.groupby('userid')
+    
+    for userid, group in grouped:
+        # 按 date_ 对用户记录进行排序
+        group = group.sort_values(by='date_')
+        
+        # 初始化 5 种历史队列
+        target_behavior_queues = {target: [] for target in targets}
+        interactive_history = []
+        non_interactive_history = []
+        finish_history = []
+        unfinish_history = []
+        daily_show_history = {}  # 改为字典，按日期存储feed
+        
+        # 遍历用户的每条记录
+        for index, row in group.iterrows():
+            date = row['date_']
+            # 7 个目标行为分别对应的历史队列
+            for target in targets:
+                if row[target] == 1:
+                    target_behavior_queues[target].append(row['feedid'])
+            
+            # 有交互行为的历史队列
+            if any(row[target] == 1 for target in targets):
+                interactive_history.append(row['feedid'])
+            else:
+                # 展现但是没有触发交互行为的历史队列
+                non_interactive_history.append(row['feedid'])
+            
+            # Finish 和 UnFinish 的历史队列
+            is_complete = row['stay'] >= row['videoplayseconds']
+            if is_complete:
+                finish_history.append(row['feedid'])
+            else:
+                unfinish_history.append(row['feedid'])
+            
+            # 用户当天展现视频队列
+            if date not in daily_show_history:
+                daily_show_history[date] = []
+            daily_show_history[date].append(row['feedid'])
+        
+        user_history[userid] = {
+            'target_behavior_queues': target_behavior_queues,
+            'interactive_history': interactive_history,
+            'non_interactive_history': non_interactive_history,
+            'finish_history': finish_history,
+            'unfinish_history': unfinish_history,
+            'daily_show_history': daily_show_history
+        }
+
+    return user_history

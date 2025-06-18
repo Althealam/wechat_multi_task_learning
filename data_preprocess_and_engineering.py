@@ -13,7 +13,7 @@
 
 import pandas as pd
 import numpy as np
-import os, copy, importlib, feature_utils, feature_embedding
+import os, copy, importlib, feature_utils, feature_embedding, json
 from feature_utils import *
 from feature_embedding import *
 importlib.reload(feature_utils)
@@ -54,19 +54,17 @@ def preprocess_data():
     
     return data, user_features, video_features
 
-def get_embedding():
+def get_feed_embedding():
     # data, user_features, video_features = preprocess_data()
     data = pd.read_csv('./data/data.csv')
-    data = data.dropna(subset=['userid', 'feedid'])
-    video_features = pd.read_csv('./data/features/feed_features.csv')
-    user_features = pd.read_csv('./data/features/user_features.csv')
-    
-    # ========= 处理feed的embeddings ========
+    data = data.dropna(subset=['userid', 'feedid']) # 用户交互历史
+
     print("================== 开始处理feed的embeddings ================")
-    # TODO: 下面这段代码的注释需要取掉
+    ####  TODO: 下面这段代码的注释需要取掉
     # deepwalk_feed_embedding = generate_deepwalk_embedding(data, video_features)
     # 处理deepwalk_feed_embedding的格式
     deepwalk_feed_embedding = pd.read_csv('./data/embeddings/deepwalk_feed_embedding.csv')
+    print("feed的deepwalk embedding已经成功生成")
     def str_to_array(emb_str):
         return np.array([float(num) for num in emb_str.strip('[]').split()])
     deepwalk_feed_embedding['deepwalk_embedding']=deepwalk_feed_embedding['deepwalk_embedding'].apply(str_to_array)
@@ -81,7 +79,60 @@ def get_embedding():
         lambda x: np.array([float(num) for num in x])
     )
     feed_embeddings.to_csv('./data/embeddings/feed_embedding_transform.csv', index=False)  
+    # concat_feed_embeddings = concat_feed_embedding(deepwalk_feed_embedding, feed_embeddings, mode='attention')
+    return deepwalk_feed_embedding, feed_embeddings # 返回deepwalk和多模态embedding
 
-    concat_feed_embeddings = concat_feed_embedding(deepwalk_feed_embedding, feed_embeddings, mode='attention')
 
-get_embedding()
+def get_user_embedding(mode):
+    data = pd.read_csv('./data/data.csv')
+    data = data.dropna(subset=['userid', 'feedid']) # 用户交互历史
+    deepwalk_feed_embedding = pd.read_csv('./data/embeddings/deepwalk_embedding_transform.csv')
+
+    print("================ 开始生成user的embedding =======================")
+    if mode == 'avg':
+        print("通过用户看过的feeed做平均来生成user embedding")
+        # 根据用户观看的视频来生成user的embedding
+        merged_data = pd.merge(data, deepwalk_feed_embedding, on='feedid', how='left')
+        
+        def average_embeddings(embeddings):
+            valid_embeddings = [emb for emb in embeddings if isinstance(emb, np.ndarray)]
+            if valid_embeddings:
+                return np.mean(valid_embeddings, axis=0)
+            return np.nan
+
+        # 按 userid 分组计算平均 embedding
+        user_embeddings = merged_data.groupby('userid')['deepwalk_embedding'].apply(average_embeddings).reset_index()
+    
+    elif mode == 'sequence': 
+        print("使用序列建模来生成user embedding")
+        # step1: 获取用户的历史行为序列
+        user_history = build_user_history_sequences(data)
+        # 存储数据
+        # 处理可能存在的 NumPy 数组
+        def convert_to_serializable(obj):
+            if isinstance(obj, np.ndarray):
+                return obj.tolist()
+            return obj
+
+        user_history_serializable = {
+            user_id: {
+                key: {
+                    sub_key: convert_to_serializable(sub_val)
+                    if isinstance(sub_val, np.ndarray) else sub_val
+                    for sub_key, sub_val in val.items()
+                } if isinstance(val, dict) else convert_to_serializable(val)
+                for key, val in history.items()
+            }
+            for user_id, history in user_history.items()
+        }
+
+        # 存储为 JSON 文件
+        with open('./data/features/user_history_sequences.json', 'w', encoding='utf-8') as f:
+            json.dump(user_history_serializable, f, ensure_ascii=False, indent=4)
+        print("用户历史行为序列已存储")
+    
+    else:
+        print("你所输入的mode无效，请你重新输入")
+    return None
+
+get_user_embedding("sequence")
