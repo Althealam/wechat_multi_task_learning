@@ -51,8 +51,8 @@ def main():
     data, user_features, feed_features = preprocess_data()
 
     # ============= 获取feed embedding, user embedding和用户的历史交互序列 ====================
-    print("########## Step2: 获取feed embedding和user embedding以及用户历史交互序列")
-    deepwalk_feed_embedding, feed_embeddings = get_feed_embedding()
+    print("########## Step2: 获取feed embedding和user embedding以及用户历史交互序列 ###############")
+    deepwalk_feed_embedding, feed_embeddings = get_feed_embedding(data, feed_features)
     user_embeddings, user_history_sequences = get_user_embedding()
 
     # ============= 将历史交互序列展开为表格数据 ==============

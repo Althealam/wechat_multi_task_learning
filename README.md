@@ -18,3 +18,5 @@
 2025/6/18
 - 获取用户的历史行为序列
 - 已确认是数据的问题，多模态embedding应该包含所有feed的，但是目前的数据没有
+- 修改报错，拼接user_features, feed_features, user_embedding, feed_embedding, 用户历史行为序列到data中
+- TODO：数据预处理（填充数组、离散化等），构建模型

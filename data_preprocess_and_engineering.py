@@ -61,8 +61,9 @@ def preprocess_data():
     
     return data, user_features, video_features
 
-def get_feed_embedding():
+def get_feed_embedding(data, video_features):
     """获取视频的embedding"""
+    ## TODO: 这里需要做特征工程和数据处理的注释，否则会导致步骤重复
     data, _, video_features = preprocess_data()
     data = pd.read_csv('/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/data.csv')
     data = data.dropna(subset=['userid', 'feedid']) # 用户交互历史
