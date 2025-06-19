@@ -25,14 +25,16 @@ from sklearn.decomposition import TruncatedSVD
 from sklearn.preprocessing import OrdinalEncoder
 import pandas as pd
 import numpy as np
-import os, copy, importlib, feature_embedding, json, joblib, feature, math, pickle
+import os, copy, importlib, feature_embedding, json, joblib, feature, math, pickle, utils
 from feature_embedding import *
 importlib.reload(feature_embedding)
 importlib.reload(feature)
+importlib.reload(utils)
 from feature import *
+from utils import *
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 pd.set_option('display.max_columns', None)
-
+from tqdm import tqdm
 
 target = ["read_comment", "like", "click_avatar", "forward", "favorite", "comment", "follow"]
 more_target = ["read_comment", "like", "click_avatar", "forward", "favorite", "comment", "follow", "stay", "play"]
@@ -347,7 +349,7 @@ def build_user_history_sequences(data):
     # 按用户 ID 分组
     grouped = data.groupby('userid')
     
-    for userid, group in grouped:
+    for userid, group in tqdm(grouped, desc='构建用户历史行为序列进度'):
         # 按 date_ 对用户记录进行排序
         group = group.sort_values(by='date_')
         
@@ -432,16 +434,15 @@ def preprocess_data(feed, action):
 
 
     print("########## 处理数据后 ###############")
-    feed = preprocess_feed(feed) # 这里处理feed时导致了feed的数量急剧下降，变成了6352
+    feed = preprocess_feed(feed) 
     feed = preprocess_videoplayseconds(feed)
     data = pd.merge(action, feed, on='feedid')
     data, user_features, video_features = generate_statistical_features(data)
+
+    data = data.dropna(subset=['userid', 'feedid'])
     print("处理数据后，user-feed交互数量为{}，其中参与交互的用户数量为{}，参与交互的视频号数量为{}".format(len(data), data['userid'].nunique(), data['feedid'].nunique()))
     print("同时，收集到features的user数量为{}，feed数量为{}".format(user_features['userid'].nunique(), video_features['feedid'].nunique()))
     
-    # data = pd.read_csv('./data/data.csv')
-    # video_features = pd.read_csv('./data/feed_features.csv')
-    # user_features = pd.read_csv('./data/user_features.csv')
     print("data:\n")
     print(data.info())
     print("user_features:\n")
@@ -453,49 +454,25 @@ def preprocess_data(feed, action):
 
 def get_feed_embedding(data, video_features, feed_embeddings):
     """获取视频的embedding"""
-    ## 这里需要做特征工程和数据处理的注释，否则会导致步骤重复
-    # data, _, video_features = preprocess_data()
-    # data = pd.read_csv('/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/data.csv')
-    data = data.dropna(subset=['userid', 'feedid']) # 用户交互历史
-
-    print("================== 开始处理feed的embeddings ================")
-    deepwalk_feed_embedding = generate_word2vec_embedding(data, video_features)
-    # 这里不能取消掉读取数据的注释，否则会出现报错
-    # deepwalk_feed_embedding = pd.read_csv('/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/embeddings/deepwalk_feed_embedding.csv')
-    # print("deepwalk_feed_embedding:", deepwalk_feed_embedding.head(5))
-    # def str_to_array(emb_str):
-    #     return np.array([float(num) for num in emb_str.strip('[]').split()])
-    # deepwalk_feed_embedding['deepwalk_embedding']=deepwalk_feed_embedding['deepwalk_embedding'].apply(str_to_array)
-    # deepwalk_feed_embedding.to_csv('/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/embeddings/deepwalk_embedding_transform.csv', index=False)
-
-    # # 处理feed_embeddings的格式
-    # feed_embeddings['feed_embedding'] = feed_embeddings['feed_embedding'].apply(
-    #     lambda x: [s for s in x.split(' ') if s.strip() != '']
-    # )
-    # feed_embeddings['feed_embedding'] = feed_embeddings['feed_embedding'].apply(
-    #     lambda x: np.array([float(num) for num in x])
-    # )
-    return deepwalk_feed_embedding, feed_embeddings # 返回deepwalk和多模态embedding
+    print("================== 开始生成feed的embeddings ================")
+    word2vec_feed_embedding = generate_word2vec_embedding(data, video_features)
+    return word2vec_feed_embedding, feed_embeddings # 返回deepwalk和多模态embedding
 
 
-def get_user_embedding(data, deepwalk_feed_embedding):
+def get_user_embedding(data, word2vec_feed_embedding):
     """获取用户的embedding"""
-    data = data.dropna(subset=['userid', 'feedid']) # 用户交互历史
     print("================ 开始生成user的embedding =======================")
     # 根据用户观看的视频来生成user的embedding
-    # 处理merged_data的feed embedding，否则为字符串的形式 
-    merged_data = pd.merge(data, deepwalk_feed_embedding, on='feedid') # 这里不要加上how='left'或者how='right' 会导致值为空，从而导致后续获取user的embedding失败
-    def str_to_array(emb_str):
-        return np.array([float(num) for num in emb_str.strip('[]').split()])
-    merged_data['feed_embedding']=merged_data['feed_embedding'].apply(str_to_array)
-    # 此时merged_data的feed_embedding为字符串，需要转化为数组
+    # 如果是从csv中读取的数据，那么需要处理merged_data的feed embedding，否则为字符串的形式 
+    merged_data = pd.merge(data, word2vec_feed_embedding, on='feedid') # 这里不要加上how='left'或者how='right' 会导致值为空，从而导致后续获取user的embedding失败
+    merged_data['feed_deepwalk_embedding']=merged_data['feed_deepwalk_embedding'].apply(str_to_array)
     def average_embeddings(embeddings):
         valid_embeddings = [emb for emb in embeddings if isinstance(emb, np.ndarray)]
         return np.mean(valid_embeddings, axis=0)
     # 按 userid 分组计算平均 embedding
-    user_embeddings = merged_data.groupby('userid')['feed_embedding'].apply(average_embeddings).reset_index()
-    user_embeddings.rename(columns={'feed_embedding': 'user_embedding'}, inplace=True) # 修改列名
-    print("通过deepwalk_embedding生成的user embedding已成功")
+    user_embeddings = merged_data.groupby('userid')['feed_deepwalk_embedding'].apply(average_embeddings).reset_index()
+    user_embeddings.rename(columns={'feed_deepwalk_embedding': 'user_embedding'}, inplace=True) # 修改列名
+    print("通过word2vec_embedding生成的user embedding已成功")
     
     print("============= 开始生成用户的历史行为序列 ========================")
     user_history = build_user_history_sequences(data)
@@ -523,6 +500,12 @@ def get_user_embedding(data, deepwalk_feed_embedding):
     
     return user_embeddings, user_history # 返回用户的embedding和用户历史行为序列
 
+
+
+def get_author_embedding(data):
+    print("========== 开始生成author的embedding ===========")
+    author_embedding = generate_author_embedding(data)
+    return author_embedding
 
 def user_history_to_dataframe(user_history):
     records = []

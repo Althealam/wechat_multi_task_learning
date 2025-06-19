@@ -22,10 +22,23 @@ parser.add_argument('--label', type=str, default='label', help='label name')
 parser.add_argument('--epoch', type=int, default=2, help='epoch.')
 parser.add_argument('--max_steps', type=int, default=600000, help='Buffer size for a reader')
 parser.add_argument('--eval_max_step', type=int, default=1, help='eval max step')
+
 # 数据存储配置
+# 1. 原始数据路径
+parser.add_argument('--feed_info_path', type=str, default='/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/feed_info.csv', help='feed info path')
+parser.add_argument('--user_action_path', type=str, default='/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/user_action.csv', help='user action path')
+parser.add_argument('--feed_embeddings_path', type=str, default='/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/feed_embeddings.csv', help='feed embeddings path')
+# 2. 后续要存储的数据路径
+parser.add_argument('--feed_word2vec_embedding_path', type=str, default='/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/embeddings/word2vec_embedding_transform.csv', help='feed word2vec embedding path')
 parser.add_argument('--feed_deepwalk_embedding_path', type=str, default='/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/embeddings/deepwalk_feed_embedding.csv', help='feed deepwalk embedding path')
 parser.add_argument('--user_embedding_path', type=str, default='/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/embeddings/user_embedding.csv', help='user embedding path')
 parser.add_argument('--features_config_path', type=str, default='/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/config/features_config.json', help='features config path')
+# 3. encoder路径
+parser.add_argument('--encoder_machine_path', type=str, default='/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/encoders/encoder_machine.txt', help='encoder machine path')
+parser.add_argument('--encoder_manual_path', type=str, default='root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/encoders/encoder_manual.txt', help='encoder manual path')
+# 4. 用户行为序列路径
+parser.add_argument('--user_history_sequences_path', type=str, default='/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/features/user_history_sequences.json', help='user history sequences path')
+
 # 模型配置
 parser.add_argument('--embedding_size', type=int, default=16, help='embedding_size')
 parser.add_argument('--dnn_hidden_units', type=str, default='64, 16', help='dnn hidden units')
@@ -63,66 +76,21 @@ def main():
     print("######### Step1: 进行数据处理和特征工程 ###############")
     data, user_features, feed_features = preprocess_data(feed, action)
 
-    print("正在进行内存优化...")
     data = reduce_mem_usage(data)
     user_features = reduce_mem_usage(user_features)
     feed_features = reduce_mem_usage(feed_features)
-    print("内存优化完毕...")
 
-    # print("正在存储经过数据处理和特征工程的数据...")
-    # processes = []
-    # os.makedirs('/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/features', exist_ok=True)
-    # processes.append(multiprocessing.Process(target=save_csv, args=(feed_features, '/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/features/feed_features.csv')))
-    # processes.append(multiprocessing.Process(target=save_csv, args=(user_features, '/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/features/user_features.csv')))
-    # processes.append(multiprocessing.Process(target=save_csv, args=(data, '/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/data.csv')))
-    # # 启动所有进程
-    # for p in processes:
-    #     p.start()
-    # # 等待所有进程完成
-    # for p in processes:
-    #     p.join()
-    # print("数据存储成功！")
-
-    # ============= 获取feed embedding, user embedding和用户的历史交互序列 ====================
+    # ============= 获取feed embedding, user embedding, author embedding和用户的历史交互序列 ====================
     print("########## Step2: 获取feed embedding和user embedding以及用户历史交互序列 ###############")
-    deepwalk_feed_embedding, feed_embeddings = get_feed_embedding(data, feed_features, feed_embeddings)
-
-    print("正在进行内存优化...")
-    deepwalk_feed_embedding = reduce_mem_usage(deepwalk_feed_embedding)
+    word2vec_feed_embedding, feed_embeddings = get_feed_embedding(data, feed_features, feed_embeddings)
+    word2vec_feed_embedding = reduce_mem_usage(word2vec_feed_embedding)
     feed_embeddings = reduce_mem_usage(feed_embeddings)
-    print("内存优化完毕...")
 
-    # print("正在存储feed embeddings数据...")
-    # processes = []
-    # os.makedirs('/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/embeddings', exist_ok=True)
-    # processes.append(multiprocessing.Process(target=save_csv, args=(deepwalk_feed_embedding, '/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/embeddings/deepwalk_feed_embedding.csv')))
-    # processes.append(multiprocessing.Process(target=save_csv, args=(feed_embeddings, '/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/embeddings/deepwalk_feed_embedding.csv')))
-    # # 启动所有进程
-    # for p in processes:
-    #     p.start()
-    # # 等待所有进程完成
-    # for p in processes:
-    #     p.join()
-    # print("数据存储成功！")
-
-
-    print("====获取user embedding====")
-    user_embeddings, user_history_sequences = get_user_embedding(data, deepwalk_feed_embedding)
-
-    print("正在进行内存优化...")
+    user_embeddings, user_history_sequences = get_user_embedding(data, word2vec_feed_embedding)
     user_embeddings = reduce_mem_usage(user_embeddings)
-    # user_history_sequences = reduce_mem_usage(user_history_sequences) # json文件无法进行内存优化
-    print("内存优化完毕...")
-    # print("正在存储user embeddings数据...")
-    # processes = []
-    # processes.append(multiprocessing.Process(target=save_csv, args=(user_embeddings, '/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/embeddings/user_embedding.csv')))
-    # # 启动所有进程
-    # for p in processes:
-    #     p.start()
-    # # 等待所有进程完成
-    # for p in processes:
-    #     p.join()
-    # print("数据存储成功！")
+
+    author_embeddings = get_author_embedding(data)
+    author_embeddings = reduce_mem_usage(author_embeddings)
 
     # ============= 将历史交互序列展开为表格数据 ==============
     print("########## Step3: 处理历史交互序列 #################")
@@ -135,24 +103,14 @@ def main():
     data = pd.merge(data, feed_features, on = 'feedid')
     data = pd.merge(data, feed_embeddings, on='feedid')
     data = pd.merge(data, user_embeddings, on='userid')
+    data = pd.merge(data, author_embeddings, on='authorid')
     data = pd.merge(data, user_history_sequences, on = 'userid')
     data = reduce_mem_usage(data)
-
-    # print("正在存储拼接了所有特征和embeddings的数据...")
-    # processes = []
-    # processes.append(multiprocessing.Process(target=save_csv, args=(data, '/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/data_with_features_embedding.csv')))
-    # # 启动所有进程
-    # for p in processes:
-    #     p.start()
-
-    # # 等待所有进程完成
-    # for p in processes:
-    #     p.join()
 
     # ============= 处理模型输入的数据格式 =================
     print('########## Step5: 开始处理模型输入的数据格式 ############')
     data_transform = model_input(data)
-    data = reduce_mem_usage(data)
+    data = reduce_mem_usage(data_transform)
     # data_transform.to_csv('/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/data_transform.csv', index=False)
     # print("数据处理完毕，并且成功保存！")
     
@@ -162,7 +120,6 @@ def main():
     features_config = convert_numpy_types(features_config) # 转换类型，将所有numpy数值类型转换为python原生类型，否则存储为json时会出现报错
     os.makedirs('/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/config', exist_ok=True)
     save_json_file('/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/config/features_config.json', features_config)
-    print("特征配置获取完毕，并且成功保存！")
     
     # # ============= 开始构建模型 ================
     # features_config = read_json_file('/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/config/features_config.json')

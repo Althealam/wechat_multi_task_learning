@@ -20,3 +20,10 @@
 - 已确认是数据的问题，多模态embedding应该包含所有feed的，但是目前的数据没有
 - 修改报错，拼接user_features, feed_features, user_embedding, feed_embedding, 用户历史行为序列到data中
 - TODO：数据预处理（填充数组、离散化等），构建模型
+
+2025/6/19
+- 修改DeepWalk为Word2Vec
+- 重新下载并导入完整的数据集 feed大概有7w多条 符合预期
+- 生成authorid的embedding
+- 处理数据为模型的输入并获取features_config，并构建模型的input layers和embedding layers
+- TODO：（1）融合feed的多模态embedding和word2vec embedding，构建完整模型（2）

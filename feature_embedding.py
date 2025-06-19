@@ -128,14 +128,46 @@ def generate_word2vec_embedding(data, video_features, embed_dim=128, window_size
     print("提取feed embedding...")
     feed_embedding_dict = {}
     for feed in tqdm(video_features['feedid'].unique(), desc="提取进度"):
-        if str(feed) in model.wv:
-            feed_embedding_dict[feed] = model.wv[str(feed)]
+        if feed in model.wv:
+            feed_embedding_dict[feed] = model.wv[feed]
     
     # 创建DataFrame
     embed_df = pd.DataFrame({
         'feedid': list(feed_embedding_dict.keys()),
-        'word2vec_embedding': list(feed_embedding_dict.values())
+        'feed_deepwalk_embedding': list(feed_embedding_dict.values())
     })
 
     print("Word2Vec Embedding生成成功！")
+    return embed_df
+
+
+
+def generate_author_embedding(data, embed_dim=128):
+    """基于用户行为序列生成作者embedding"""
+    # 准备训练数据 - 将每个用户交互的作者序列作为句子
+    user_author_sequences = data.groupby('userid')['authorid'].apply(list).values.tolist()
+    
+    # 训练Word2Vec模型
+    model = Word2Vec(
+        sentences=tqdm(user_author_sequences, desc="author embedding训练进度"),
+        vector_size=embed_dim,
+        window=5,  # 滑动窗口大小
+        min_count=1,  # 最少出现次数
+        workers=multiprocessing.cpu_count(),
+        epochs=10
+    )
+    
+    # 提取author embedding
+    author_embedding_dict = {
+        author: model.wv[author] 
+        for author in data['authorid'].unique() 
+        if author in model.wv
+    }
+    
+    # 转换为DataFrame
+    embed_df = pd.DataFrame({
+        'authorid': list(author_embedding_dict.keys()),
+        'author_embedding': list(author_embedding_dict.values())
+    })
+    
     return embed_df

@@ -35,7 +35,7 @@ def save_json_file(file_path, file):
     """存储json文件并将file存储到file_path路径"""
     with open(file_path, 'w') as f:
         json.dump(file, f, indent=4)
-        print("文件保存成功!")
+        print("文件{}保存成功!".format(file))
 
 # 添加类型转换函数
 def convert_numpy_types(obj):
@@ -224,8 +224,14 @@ def preprocess(sample,dense_features):
     return sample
 
 
-def str_to_array(emb_str):
-    return np.array([float(num) for num in emb_str.strip('[]').split()])
+def str_to_array(emb):
+    """将embedding字符串转换为numpy数组，兼容已为数组的情况"""
+    if isinstance(emb, np.ndarray):  # 如果已经是数组，直接返回
+        return emb
+    elif isinstance(emb, str):  # 如果是字符串，解析为数组
+        return np.array([float(num) for num in emb.strip('[]').split()])
+    else:  # 其他情况返回空数组
+        return np.array([])
 
 def save_csv(data, path):
     """并行化存储数据可以使用"""
@@ -233,6 +239,7 @@ def save_csv(data, path):
 
 def reduce_mem_usage(df):
     """迭代式减少DataFrame内存占用"""
+    print("正在进行内存优化！")
     start_mem = df.memory_usage().sum() / 1024**2
     print(f"初始内存占用: {start_mem:.2f} MB")
     
@@ -266,4 +273,5 @@ def reduce_mem_usage(df):
     
     end_mem = df.memory_usage().sum() / 1024**2
     print(f"优化后内存占用: {end_mem:.2f} MB (减少 {100 * (start_mem - end_mem) / start_mem:.1f}%)")
+    print("内存优化完毕")
     return df
