@@ -26,4 +26,4 @@
 - 重新下载并导入完整的数据集 feed大概有7w多条 符合预期
 - 生成authorid的embedding
 - 处理数据为模型的输入并获取features_config，并构建模型的input layers和embedding layers
-- TODO：（1）融合feed的多模态embedding和word2vec embedding，构建完整模型（2）
+- TODO：（1）融合feed的多模态embedding和word2vec embedding（2）构建完整模型
