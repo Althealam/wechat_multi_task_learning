@@ -1,7 +1,6 @@
 import json
 import pandas as pd
 import numpy as np
-from features import dense_features, sparse_features, varlen_features
 
 def read_json_file(file_path):
     """读取JSON文件并返回其内容
@@ -36,6 +35,19 @@ def save_json_file(file_path, file):
         json.dump(file, f, indent=4)
         print("文件保存成功!")
 
+# 添加类型转换函数
+def convert_numpy_types(obj):
+    if isinstance(obj, (np.int64, np.int32)):
+        return int(obj)
+    elif isinstance(obj, (np.float64, np.float32)):
+        return float(obj)
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, dict):
+        return {k: convert_numpy_types(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_numpy_types(v) for v in obj]
+    return obj
 
 def generate_complete_embedding_config(df, encoder, encoder_description):
     """生成包含dense、sparse和sequence的完整特征配置"""

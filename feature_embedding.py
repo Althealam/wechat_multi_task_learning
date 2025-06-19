@@ -1,4 +1,3 @@
-import networkx as nx
 """
 这段代码是生成embedding的
 目前包含feed的deepwalk embedding
@@ -10,6 +9,7 @@ from karateclub import DeepWalk
 import multiprocessing
 import tensorflow as tf
 from tensorflow.keras.layers import Input, Dense, Concatenate, Activation
+import networkx as nx
 
 
 def generate_deepwalk_embedding(data, video_features, embed_dim=128, walks_per_node=10, walk_length=80):
