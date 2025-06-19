@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import json
 import pandas as pd
 import numpy as np
@@ -224,3 +226,44 @@ def preprocess(sample,dense_features):
 
 def str_to_array(emb_str):
     return np.array([float(num) for num in emb_str.strip('[]').split()])
+
+def save_csv(data, path):
+    """并行化存储数据可以使用"""
+    data.to_csv(path, index=False)
+
+def reduce_mem_usage(df):
+    """迭代式减少DataFrame内存占用"""
+    start_mem = df.memory_usage().sum() / 1024**2
+    print(f"初始内存占用: {start_mem:.2f} MB")
+    
+    for col in df.columns:
+        col_type = df[col].dtype
+        
+        if col_type != object:
+            try:
+                c_min = df[col].min()
+                c_max = df[col].max()
+                
+                if str(col_type)[:3] == 'int':
+                    if c_min > np.iinfo(np.int8).min and c_max < np.iinfo(np.int8).max:
+                        df[col] = df[col].astype(np.int8)
+                    elif c_min > np.iinfo(np.int16).min and c_max < np.iinfo(np.int16).max:
+                        df[col] = df[col].astype(np.int16)
+                    elif c_min > np.iinfo(np.int32).min and c_max < np.iinfo(np.int32).max:
+                        df[col] = df[col].astype(np.int32)
+                    elif c_min > np.iinfo(np.int64).min and c_max < np.iinfo(np.int64).max:
+                        df[col] = df[col].astype(np.int64)
+                else:
+                    if c_min > np.finfo(np.float16).min and c_max < np.finfo(np.float16).max:
+                        df[col] = df[col].astype(np.float16)
+                    elif c_min > np.finfo(np.float32).min and c_max < np.finfo(np.float32).max:
+                        df[col] = df[col].astype(np.float32)
+                    else:
+                        df[col] = df[col].astype(np.float64)
+            except TypeError:
+                # 跳过无法比较的列
+                continue
+    
+    end_mem = df.memory_usage().sum() / 1024**2
+    print(f"优化后内存占用: {end_mem:.2f} MB (减少 {100 * (start_mem - end_mem) / start_mem:.1f}%)")
+    return df
