@@ -465,13 +465,13 @@ def get_user_embedding(data, word2vec_feed_embedding):
     # 根据用户观看的视频来生成user的embedding
     # 如果是从csv中读取的数据，那么需要处理merged_data的feed embedding，否则为字符串的形式 
     merged_data = pd.merge(data, word2vec_feed_embedding, on='feedid') # 这里不要加上how='left'或者how='right' 会导致值为空，从而导致后续获取user的embedding失败
-    merged_data['feed_deepwalk_embedding']=merged_data['feed_deepwalk_embedding'].apply(str_to_array)
+    merged_data['feed_word2vec_embedding']=merged_data['feed_word2vec_embedding'].apply(str_to_array)
     def average_embeddings(embeddings):
         valid_embeddings = [emb for emb in embeddings if isinstance(emb, np.ndarray)]
         return np.mean(valid_embeddings, axis=0)
     # 按 userid 分组计算平均 embedding
-    user_embeddings = merged_data.groupby('userid')['feed_deepwalk_embedding'].apply(average_embeddings).reset_index()
-    user_embeddings.rename(columns={'feed_deepwalk_embedding': 'user_embedding'}, inplace=True) # 修改列名
+    user_embeddings = merged_data.groupby('userid')['feed_word2vec_embedding'].apply(average_embeddings).reset_index()
+    user_embeddings.rename(columns={'feed_word2vec_embedding': 'user_embedding'}, inplace=True) # 修改列名
     print("通过word2vec_embedding生成的user embedding已成功")
     
     print("============= 开始生成用户的历史行为序列 ========================")
@@ -564,7 +564,7 @@ def model_input(data):
         )
 
     # 3. 处理manual_keyword_list, machine_keyword_list, manual_tag_list, machine_tag_list
-    print("Step3: 处理keyword和tag")
+    print("Step3: 处理keyword和tag的manual和machine特征")
     for col in ["manual_keyword_list","machine_keyword_list","manual_tag_list","machine_tag_list"]:
         data[col] = data[col].astype(str)
         # 先去掉两侧的空格，然后再按照空格进行分隔

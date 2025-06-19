@@ -98,7 +98,6 @@ def generate_word2vec_embedding(data, video_features, embed_dim=128, window_size
     print("原始的user-feed交互数量为:", len(data))
     print("原始的feed数量为:", len(video_features))
     
-    data = data.dropna(subset=['userid', 'feedid'])
     video_features = video_features.dropna(subset=['feedid'])
     print("去掉空值后的user-feed交互数量为:", len(data))
     
@@ -134,7 +133,7 @@ def generate_word2vec_embedding(data, video_features, embed_dim=128, window_size
     # 创建DataFrame
     embed_df = pd.DataFrame({
         'feedid': list(feed_embedding_dict.keys()),
-        'feed_deepwalk_embedding': list(feed_embedding_dict.values())
+        'feed_word2vec_embedding': list(feed_embedding_dict.values())
     })
 
     print("Word2Vec Embedding生成成功！")

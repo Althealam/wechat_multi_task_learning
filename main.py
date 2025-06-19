@@ -50,11 +50,6 @@ parser.add_argument('--dropout', type=float, default=0.2, help='dropout rate')
 parser.add_argument('--dnn_use_bn', type=bool, default=True, help='use bn')
 args = parser.parse_args()
 
-# 读取特征配置
-# with open('/opt/tiger/toutiao_search_rec_pyspark_code/nn_model/config/embedding_feat_dict.json', 'r') as f:
-#     features_config = json.load(f)
-
-# features_config = generate_tfrecord_config(embedding_feat_dict, feature_names, label_name)
 
 def extract_tf_flags():
     config = vars(args)
@@ -101,6 +96,7 @@ def main():
     print("########## Step4: 拼接所有特征 ########################")
     data = pd.merge(data, user_features, on = 'userid')
     data = pd.merge(data, feed_features, on = 'feedid')
+    data = pd.merge(data, word2vec_feed_embedding, on='feedid')
     data = pd.merge(data, feed_embeddings, on='feedid')
     data = pd.merge(data, user_embeddings, on='userid')
     data = pd.merge(data, author_embeddings, on='authorid')
@@ -122,16 +118,15 @@ def main():
     save_json_file('/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/config/features_config.json', features_config)
     
     # # ============= 开始构建模型 ================
-    # features_config = read_json_file('/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/config/features_config.json')
-    # build_base_model(features_config, tf_config)
-    # if tf_config.get("running_mode")=='export':
-    #     serving_model = get_model(tf_config.get('model_name'), features_config, tf_config, is_training=False)
-    #     tf.saved_model.save(serving_model, tf_config['model_path']+'/exported')
-    # elif tf_config.get('running_mode')=='predict':
-    #     pass
-    # else:
-    #     model = get_model("base", features_config, tf_config)
-    #     model.summary()
+    build_base_model(features_config, tf_config)
+    if tf_config.get("running_mode")=='export':
+        serving_model = get_model(tf_config.get('model_name'), features_config, tf_config, is_training=False)
+        tf.saved_model.save(serving_model, tf_config['model_path']+'/exported')
+    elif tf_config.get('running_mode')=='predict':
+        pass
+    else:
+        model = get_model("base", features_config, tf_config)
+        model.summary()
 
 
 if __name__=='__main__':
