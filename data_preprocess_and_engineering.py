@@ -625,8 +625,18 @@ def get_features_config(data):
     
     for feat in sparse:
         print("正在生成{}的特征配置".format(feat))
-        vocab_size=data[feat].nunique()
-        embedding_dim = min(64, max(8, int(4 * (1 + math.log(vocab_size)))))
+        if feat=='userid':
+            vocab_size = data[feat].nunique()
+            embedding_dim = len(data['user_embedding'][0])
+        elif feat =='authorid':
+            vocab_size = data[feat].nunique()
+            embedding_dim = len(data['author_embedding'][0])
+        elif feat=='feedid':
+            vocab_size = data[feat].nunique()
+            embedding_dim = len(data['feed_word2vec_embedding'][0])
+        else:
+            vocab_size=data[feat].nunique()
+            embedding_dim = min(64, max(8, int(4 * (1 + math.log(vocab_size)))))
 
         features_config['sparse'][feat]={
             'vocab_size': vocab_size,

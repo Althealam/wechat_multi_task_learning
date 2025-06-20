@@ -37,7 +37,8 @@ def build_base_model(features_config, tf_config, is_training=True):
             raise ValueError(f"Unknown feature type for {feature_name}")
     
     # ========== 构建embedding层 ================
-    embedding_layers = get_embedding_layer(features_config, tf_config, input_layers)
+    ## TODO: 这里需要想办法传入word2vec_feed_embedding, user_embeddings, author_embeddings
+    embedding_layers = get_embedding_layer(features_config, tf_config, input_layers, word2vec_feed_embedding, user_embeddings, author_embeddings)
     print("embedding_layers:", embedding_layers)
 
 
@@ -54,14 +55,14 @@ def get_embedding_layer(features_config, tf_config, input_layers, word2vec_feed_
             # 填充embedding矩阵 
             for _, row in word2vec_feed_embedding.iterrows():
                 feedid = row['feedid']
-                embedding = np.array(eval(row['word2vec_feed_embedding']))  
+                embedding = np.array(row['feed_word2vec_embedding'])
                 embedding_matrix[feedid] = embedding
         
             embedding_layers[feature_name] = Embedding(
                 input_dim=features_config[feature_name]['vocab_size'],
                 output_dim = features_config[feature_name]['embedding_dim'],
                 input_length = 1,
-                embedding_initializer = tf.keras.initializers.Constant(embedding_matrix),
+                embeddings_initializer = tf.keras.initializers.Constant(embedding_matrix),
                 name='feedid_embedding'
             )(input_layers['feedid'])
         
@@ -73,14 +74,14 @@ def get_embedding_layer(features_config, tf_config, input_layers, word2vec_feed_
             # 填充embedding矩阵 
             for _, row in user_embeddings.iterrows():
                 feedid = row['userid']
-                embedding = np.array(eval(row['user_embedding'])) 
+                embedding = np.array(row['user_embedding'])
                 embedding_matrix[feedid] = embedding
         
             embedding_layers[feature_name] = Embedding(
                 input_dim=features_config['sparse'][feature_name]['vocab_size'],
                 output_dim = features_config['sparse'][feature_name]['embedding_dim'],
                 input_length = 1,
-                embedding_initializer = tf.keras.initializers.Constant(embedding_matrix),
+                embeddings_initializer = tf.keras.initializers.Constant(embedding_matrix),
                 name='userid_embedding'
             )(input_layers['userid'])
         
@@ -91,22 +92,22 @@ def get_embedding_layer(features_config, tf_config, input_layers, word2vec_feed_
             ])
             for _, row in author_embeddings.iterrows():
                 authorid = row['authorid']
-                embedding = np.array(eval(row['author_embedding']))
+                embedding = np.array(row['author_embedding'])
                 embedding_matrix[authorid] = embedding
             
             embedding_layers[feature_name] = Embedding(
                 input_dim = features_config['sparse'][feature_name]['vocab_size'],
                 output_dim = features_config['sparse'][feature_name]['embedding_dim'],
                 input_length = 1,
-                embedding_initializer = tf.keras.initializers.Constant(embedding_matrix),
+                embeddings_initializer = tf.keras.initializers.Constant(embedding_matrix),
                 name='authorid_embedding'
             )(input_layers['authorid'])
         else:
             embedding_layers[feature_name] = Embedding(
-                input_dim=features_config['dense'][feature_name]['vocab_size'],
-                output_dim=features_config['dense'][feature_name]['embedding_dim'],
+                input_dim=features_config['sparse'][feature_name]['vocab_size'],
+                output_dim=features_config['sparse'][feature_name]['embedding_dim'],
                 input_length=1,
-                embedding_initializer = tf.keras.initializers.GlorotNormal(), # 使用Deepwalk生成的embedding进行初始化
+                embeddings_initializer = tf.keras.initializers.GlorotNormal(), # 使用Deepwalk生成的embedding进行初始化
                 name=f'{feature_name}_embedding'
             )(input_layers[feature_name])
     
@@ -116,7 +117,7 @@ def get_embedding_layer(features_config, tf_config, input_layers, word2vec_feed_
             input_dim=features_config['sequence'][feature_name]['vocab_size'],
             output_dim=features_config['sequence'][feature_name]['embedding_dim'],
             input_length=tf_config['max_len'],
-            embedding_initializer = tf.keras.initializers.GlorotNormal(), # 正态分布初始化
+            embeddings_initializer = tf.keras.initializers.GlorotNormal(), # 正态分布初始化
             name=f'{feature_name}_embedding'
         )(input_layers[feature_name])
     return embedding_layers

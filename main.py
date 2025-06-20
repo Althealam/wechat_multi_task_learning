@@ -25,25 +25,25 @@ parser.add_argument('--eval_max_step', type=int, default=1, help='eval max step'
 
 # 数据存储配置
 # 1. 原始数据路径
-parser.add_argument('--feed_info_path', type=str, default='~/repo/mtl_notebook/data/feed_info.csv', help='feed info path')
-parser.add_argument('--user_action_path', type=str, default='~/repo/mtl_notebook/data/user_action.csv', help='user action path')
-parser.add_argument('--feed_embeddings_path', type=str, default='~/repo/mtl_notebook/data/feed_embeddings.csv', help='feed embeddings path')
+parser.add_argument('--feed_info_path', type=str, default='./data/feed_info.csv', help='feed info path')
+parser.add_argument('--user_action_path', type=str, default='./data/user_action.csv', help='user action path')
+parser.add_argument('--feed_embeddings_path', type=str, default='./data/feed_embeddings.csv', help='feed embeddings path')
 # 2. 后续要存储的数据路径
-parser.add_argument('--feed_word2vec_embedding_path', type=str, default='~/repo/mtl_notebook/data/embeddings/feed_word2vec_embeddings.csv', help='feed word2vec embedding path')
-parser.add_argument('--feed_deepwalk_embedding_path', type=str, default='~/repo/mtl_notebook/data/embeddings/feed_deepwalk_embeddings.csv', help='feed deepwalk embedding path')
-parser.add_argument('--user_embedding_path', type=str, default='~/repo/mtl_notebook/data/embeddings/user_embeddings.csv', help='user embedding path')
-parser.add_argument('--features_config_path', type=str, default='~/repo/mtl_notebook/data/config/features_config.json', help='features config path')
+parser.add_argument('--feed_word2vec_embedding_path', type=str, default='./data/embeddings/feed_word2vec_embeddings.csv', help='feed word2vec embedding path')
+parser.add_argument('--feed_deepwalk_embedding_path', type=str, default='./data/embeddings/feed_deepwalk_embeddings.csv', help='feed deepwalk embedding path')
+parser.add_argument('--user_embedding_path', type=str, default='./data/embeddings/user_embeddings.csv', help='user embedding path')
+parser.add_argument('--features_config_path', type=str, default='./data/config/features_config.json', help='features config path')
 # 3. encoder路径
-parser.add_argument('--encoder_path', type=str, default='~/repo/mtl_notebook/data/encoders', help='encoder path')
-parser.add_argument('--encoder_machine_path', type=str, default='~/repo/mtl_notebook/data/encoders/encoder_machine.txt', help='encoder machine path')
-parser.add_argument('--encoder_manual_path', type=str, default='~/repo/mtl_notebook/data/encoders/encoder_manual.txt', help='encoder manual path')
+parser.add_argument('--encoder_path', type=str, default='./data/encoders', help='encoder path')
+parser.add_argument('--encoder_machine_path', type=str, default='./data/encoders/encoder_machine.txt', help='encoder machine path')
+parser.add_argument('--encoder_manual_path', type=str, default='./data/encoders/encoder_manual.txt', help='encoder manual path')
 # 4. 用户行为序列路径
-parser.add_argument('--features_path', type=str, default='~/repo/mtl_notebook/data/features', help='features path')
-parser.add_argument('--user_history_sequences_path', type=str, default='~/repo/mtl_notebook/data/features/user_history_sequences.json', help='user history sequences path')
+parser.add_argument('--features_path', type=str, default='./data/features', help='features path')
+parser.add_argument('--user_history_sequences_path', type=str, default='./data/features/user_history_sequences.json', help='user history sequences path')
 # 5. 其他路径
-parser.add_argument('--config_path', type=str, default='~/repo/mtl_notebook/data/config', help='features config path')
+parser.add_argument('--config_path', type=str, default='./data/config', help='features config path')
 # 6. 分步骤存储的数据
-parser.add_argument('--step_1_data_preprocess_and_engineering_path', type=str, default='~/repo/mtl_notebook/data/step_1_data_preprocess_and_engineering', help='data preprocess and engineering path')
+parser.add_argument('--step_1_data_preprocess_and_engineering_path', type=str, default='./data/step_1_data_preprocess_and_engineering', help='data preprocess and engineering path')
 
 # 模型配置
 parser.add_argument('--embedding_size', type=int, default=16, help='embedding_size')
@@ -138,7 +138,7 @@ def main():
     
     # ============= 开始获取features_config =============
     print("########## Step6: 开始基于模型输入获取特征配置文件 #############")
-    features_config = get_features_config(data_transform)
+    features_config = get_features_config(data)
     features_config = convert_numpy_types(features_config) # 转换类型，将所有numpy数值类型转换为python原生类型，否则存储为json时会出现报错
     os.makedirs(tf_config['config_path'], exist_ok=True)
     save_json_file(tf_config['features_config_path'], features_config)
