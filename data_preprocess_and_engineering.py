@@ -505,6 +505,7 @@ def get_user_embedding(data, word2vec_feed_embedding):
 def get_author_embedding(data):
     print("========== 开始生成author的embedding ===========")
     author_embedding = generate_author_embedding(data)
+    print("author的embedding生成成功！")
     return author_embedding
 
 def user_history_to_dataframe(user_history):

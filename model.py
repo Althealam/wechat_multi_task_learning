@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 from tensorflow.keras.layers import *
 from tensorflow.keras.initializers import TruncatedNormal
 from tensorflow.keras.layers import *

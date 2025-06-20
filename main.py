@@ -62,71 +62,91 @@ def main():
     # 获取模型运行配置
     tf_config = extract_tf_flags()
 
-    # 读取所需要的数据
-    feed = pd.read_csv('/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/feed_info.csv')
-    action = pd.read_csv('/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/user_action.csv')
-    feed_embeddings = pd.read_csv('/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/feed_embeddings.csv')
-
-    # ============= 进行数据处理和特征工程 ============
-    print("######### Step1: 进行数据处理和特征工程 ###############")
-    data, user_features, feed_features = preprocess_data(feed, action)
-
-    data = reduce_mem_usage(data)
-    user_features = reduce_mem_usage(user_features)
-    feed_features = reduce_mem_usage(feed_features)
-
-    # ============= 获取feed embedding, user embedding, author embedding和用户的历史交互序列 ====================
-    print("########## Step2: 获取feed embedding和user embedding以及用户历史交互序列 ###############")
-    word2vec_feed_embedding, feed_embeddings = get_feed_embedding(data, feed_features, feed_embeddings)
-    word2vec_feed_embedding = reduce_mem_usage(word2vec_feed_embedding)
-    feed_embeddings = reduce_mem_usage(feed_embeddings)
-
-    user_embeddings, user_history_sequences = get_user_embedding(data, word2vec_feed_embedding)
-    user_embeddings = reduce_mem_usage(user_embeddings)
-
-    author_embeddings = get_author_embedding(data)
-    author_embeddings = reduce_mem_usage(author_embeddings)
-
-    # ============= 将历史交互序列展开为表格数据 ==============
-    print("########## Step3: 处理历史交互序列 #################")
-    user_history_sequences = user_history_to_dataframe(user_history_sequences) 
-    user_history_sequences = reduce_mem_usage(user_history_sequences)
-
-    # ============= 拼接user_features, feed_features, feed_embeddings, user_embeddings, user_history_sequences =============
-    print("########## Step4: 拼接所有特征 ########################")
-    data = pd.merge(data, user_features, on = 'userid')
-    data = pd.merge(data, feed_features, on = 'feedid')
-    data = pd.merge(data, word2vec_feed_embedding, on='feedid')
-    data = pd.merge(data, feed_embeddings, on='feedid')
-    data = pd.merge(data, user_embeddings, on='userid')
-    data = pd.merge(data, author_embeddings, on='authorid')
-    data = pd.merge(data, user_history_sequences, on = 'userid')
-    data = reduce_mem_usage(data)
-
-    # ============= 处理模型输入的数据格式 =================
-    print('########## Step5: 开始处理模型输入的数据格式 ############')
-    data_transform = model_input(data)
-    data = reduce_mem_usage(data_transform)
-    # data_transform.to_csv('/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/data_transform.csv', index=False)
-    # print("数据处理完毕，并且成功保存！")
-    
-    # ============= 开始获取features_config =============
-    print("########## Step6: 开始基于模型输入获取特征配置文件 #############")
-    features_config = get_features_config(data_transform)
-    features_config = convert_numpy_types(features_config) # 转换类型，将所有numpy数值类型转换为python原生类型，否则存储为json时会出现报错
-    os.makedirs('/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/config', exist_ok=True)
-    save_json_file('/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/config/features_config.json', features_config)
-    
-    # # ============= 开始构建模型 ================
-    build_base_model(features_config, tf_config)
-    if tf_config.get("running_mode")=='export':
-        serving_model = get_model(tf_config.get('model_name'), features_config, tf_config, is_training=False)
-        tf.saved_model.save(serving_model, tf_config['model_path']+'/exported')
-    elif tf_config.get('running_mode')=='predict':
-        pass
+    # 检查 GPU 状态
+    gpus = tf.config.list_physical_devices('GPU')
+    if gpus:
+        try:
+            for gpu in gpus:
+                tf.config.experimental.set_memory_growth(gpu, True)
+            print(f"GPU 设备已启用: {gpus}")
+        except RuntimeError as e:
+            print(f"GPU 配置错误: {e}")
     else:
-        model = get_model("base", features_config, tf_config)
-        model.summary()
+        print("警告: 未检测到 GPU 设备")
+    
+    # 详细设备信息
+    print("\n======= 硬件加速详情 =======")
+    print("CUDA 编译版本:", tf.sysconfig.get_build_info()["cuda_version"])
+    print("cuDNN 编译版本:", tf.sysconfig.get_build_info()["cudnn_version"])
+    print("实际检测到的 GPU:", tf.config.list_physical_devices('GPU'))
+    print("==========================\n")
+    
+
+    # # 读取所需要的数据
+    # feed = pd.read_csv('/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/feed_info.csv')
+    # action = pd.read_csv('/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/user_action.csv')
+    # feed_embeddings = pd.read_csv('/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/feed_embeddings.csv')
+
+    # # ============= 进行数据处理和特征工程 ============
+    # print("######### Step1: 进行数据处理和特征工程 ###############")
+    # data, user_features, feed_features = preprocess_data(feed, action)
+
+    # data = reduce_mem_usage(data)
+    # user_features = reduce_mem_usage(user_features)
+    # feed_features = reduce_mem_usage(feed_features)
+
+    # # ============= 获取feed embedding, user embedding, author embedding和用户的历史交互序列 ====================
+    # print("########## Step2: 获取feed embedding和user embedding以及用户历史交互序列 ###############")
+    # word2vec_feed_embedding, feed_embeddings = get_feed_embedding(data, feed_features, feed_embeddings)
+    # word2vec_feed_embedding = reduce_mem_usage(word2vec_feed_embedding)
+    # feed_embeddings = reduce_mem_usage(feed_embeddings)
+
+    # user_embeddings, user_history_sequences = get_user_embedding(data, word2vec_feed_embedding)
+    # user_embeddings = reduce_mem_usage(user_embeddings)
+
+    # author_embeddings = get_author_embedding(data)
+    # author_embeddings = reduce_mem_usage(author_embeddings)
+
+    # # ============= 将历史交互序列展开为表格数据 ==============
+    # print("########## Step3: 处理历史交互序列 #################")
+    # user_history_sequences = user_history_to_dataframe(user_history_sequences) 
+    # user_history_sequences = reduce_mem_usage(user_history_sequences)
+
+    # # ============= 拼接user_features, feed_features, feed_embeddings, user_embeddings, user_history_sequences =============
+    # print("########## Step4: 拼接所有特征 ########################")
+    # data = pd.merge(data, user_features, on = 'userid')
+    # data = pd.merge(data, feed_features, on = 'feedid')
+    # data = pd.merge(data, word2vec_feed_embedding, on='feedid')
+    # data = pd.merge(data, feed_embeddings, on='feedid')
+    # data = pd.merge(data, user_embeddings, on='userid')
+    # data = pd.merge(data, author_embeddings, on='authorid')
+    # data = pd.merge(data, user_history_sequences, on = 'userid')
+    # data = reduce_mem_usage(data)
+
+    # # ============= 处理模型输入的数据格式 =================
+    # print('########## Step5: 开始处理模型输入的数据格式 ############')
+    # data_transform = model_input(data)
+    # data = reduce_mem_usage(data_transform)
+    # # data_transform.to_csv('/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/data_transform.csv', index=False)
+    # # print("数据处理完毕，并且成功保存！")
+    
+    # # ============= 开始获取features_config =============
+    # print("########## Step6: 开始基于模型输入获取特征配置文件 #############")
+    # features_config = get_features_config(data_transform)
+    # features_config = convert_numpy_types(features_config) # 转换类型，将所有numpy数值类型转换为python原生类型，否则存储为json时会出现报错
+    # os.makedirs('/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/config', exist_ok=True)
+    # save_json_file('/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/config/features_config.json', features_config)
+    
+    # # # ============= 开始构建模型 ================
+    # build_base_model(features_config, tf_config)
+    # if tf_config.get("running_mode")=='export':
+    #     serving_model = get_model(tf_config.get('model_name'), features_config, tf_config, is_training=False)
+    #     tf.saved_model.save(serving_model, tf_config['model_path']+'/exported')
+    # elif tf_config.get('running_mode')=='predict':
+    #     pass
+    # else:
+    #     model = get_model("base", features_config, tf_config)
+    #     model.summary()
 
 
 if __name__=='__main__':
