@@ -138,7 +138,7 @@ def main():
     
     # ============= 开始获取features_config =============
     print("########## Step6: 开始基于模型输入获取特征配置文件 #############")
-    features_config = get_features_config(data)
+    features_config = get_features_config(data, feed, user_features)
     features_config = convert_numpy_types(features_config) # 转换类型，将所有numpy数值类型转换为python原生类型，否则存储为json时会出现报错
     os.makedirs(tf_config['config_path'], exist_ok=True)
     save_json_file(tf_config['features_config_path'], features_config)
@@ -146,7 +146,7 @@ def main():
     # # # ============= 开始构建模型 ================
     # build_base_model(features_config, tf_config)
     # if tf_config.get("running_mode")=='export':
-    #     serving_model = get_model(tf_config.get('model_name'), features_config, tf_config, is_training=False)
+    #     serving_model = get_model(tf_config.get('model_name'), features_config, tf_config, word2vec_feed_embedding, user_embeddings, author_embeddings, is_training=False)
     #     tf.saved_model.save(serving_model, tf_config['model_path']+'/exported')
     # elif tf_config.get('running_mode')=='predict':
     #     pass

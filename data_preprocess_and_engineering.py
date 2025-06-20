@@ -51,16 +51,15 @@ def preprocess_feed(feed, tf_config):
     """处理feed数据，包括填充数据，以及对多值id进行离散化、tfidf以及svd降维"""
     # ========处理feed数据=======
     # 1. 填充缺失值
-    feed[["bgm_song_id", "bgm_singer_id"]] += 1 # 0用于表示未知
-    feed[["bgm_song_id", "bgm_singer_id", "videoplayseconds"]] = \
-        feed[["bgm_song_id", "bgm_singer_id", "videoplayseconds"]].fillna(0)
+    feed[["bgm_song_id", "bgm_singer_id", "authorid"]] += 1 # 0用于表示未知
+    feed[["bgm_song_id", "bgm_singer_id", "authorid", "videoplayseconds"]] = \
+        feed[["bgm_song_id", "bgm_singer_id", "authorid", "videoplayseconds"]].fillna(0)
     feed['bgm_song_id'] = feed['bgm_song_id'].astype('int64')
     feed['bgm_singer_id'] = feed['bgm_singer_id'].astype('int64')
     feed['manual_tag_list'] = feed['manual_tag_list'].fillna('-1') 
     feed['machine_tag_list'] = feed['machine_tag_list'].fillna('-1')
     feed['manual_keyword_list'] = feed['manual_keyword_list'].fillna('-1')
     feed['machine_keyword_list'] = feed['machine_keyword_list'].fillna('-1')
-
     for name in ['description', 'ocr', 'asr', 'description_char', 'ocr_char', 'asr_char']:
         feed[name] = feed[name].fillna('-1')
     
@@ -437,6 +436,7 @@ def preprocess_data(feed, action, tf_config):
     feed = preprocess_videoplayseconds(feed)
     data = pd.merge(action, feed, on='feedid')
     data, user_features, video_features = generate_statistical_features(data)
+    # 加上authorid 否则后续读取不到
 
     data = data.dropna(subset=['userid', 'feedid'])
     print("处理数据后，user-feed交互数量为{}，其中参与交互的用户数量为{}，参与交互的视频号数量为{}".format(len(data), data['userid'].nunique(), data['feedid'].nunique()))
@@ -598,7 +598,7 @@ def model_input(data):
     return data
 
 
-def get_features_config(data):
+def get_features_config(data, feed, user_features):
     features_config={
         'dense': dense,
         'sequence': {},
@@ -626,16 +626,16 @@ def get_features_config(data):
     for feat in sparse:
         print("正在生成{}的特征配置".format(feat))
         if feat=='userid':
-            vocab_size = data[feat].nunique()
+            vocab_size = max(user_features['userid'])+10
             embedding_dim = len(data['user_embedding'][0])
         elif feat =='authorid':
-            vocab_size = data[feat].nunique()
+            vocab_size = max(feed['authorid'])+10 # 注意这里不能通过data中的来获取，否则会导致后续embedding找不到对应的id
             embedding_dim = len(data['author_embedding'][0])
         elif feat=='feedid':
-            vocab_size = data[feat].nunique()
+            vocab_size = max(feed['feedid'])+10
             embedding_dim = len(data['feed_word2vec_embedding'][0])
         else:
-            vocab_size=data[feat].nunique()
+            vocab_size=data[feat].nunique()+1
             embedding_dim = min(64, max(8, int(4 * (1 + math.log(vocab_size)))))
 
         features_config['sparse'][feat]={
