@@ -47,7 +47,7 @@ merge_features = ['feedid', 'authorid', 'videoplayseconds', 'bgm_song_id', 'bgm_
 
 
 
-def preprocess_feed(feed):
+def preprocess_feed(feed, tf_config):
     """处理feed数据，包括填充数据，以及对多值id进行离散化、tfidf以及svd降维"""
     # ========处理feed数据=======
     # 1. 填充缺失值
@@ -143,9 +143,9 @@ def preprocess_feed(feed):
         reverse_machine[f] = {v: k for k, v in key2index_machine.items()}
 
     # （1.3）创建文件夹并保存编码字典
-    os.makedirs('/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/encoders', exist_ok=True)
-    joblib.dump(encoder_machine, '/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/encoders/encoder_machine.txt')
-    joblib.dump(encoder_manual, '/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/encoders/encoder_manual.txt')
+    os.makedirs(tf_config['encoder_path'], exist_ok=True)
+    joblib.dump(encoder_machine, tf_config['encoder_machine_path'])
+    joblib.dump(encoder_manual, tf_config['encoder_manual_path'])
     
     # （2）使用tf-idf处理
      # ========计算TF-IDF特征========
@@ -190,12 +190,11 @@ def preprocess_feed(feed):
         feed = pd.concat([feed, svd_df], axis=1)
         
         # 保存SVD模型
-        os.makedirs('/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/encoders', exist_ok=True)
-        with open('/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/encoders/svd_{}.pkl'.format(field), 'wb') as f:
+        with open(os.path.join(tf_config['encoder_path'],f'svd_{field}.pkl'), 'wb') as f:   
             pickle.dump(svd, f)
         
         # 保存TF-IDF向量器
-        with open('/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/encoders/tfidf_{}.pkl'.format(field), 'wb') as f:
+        with open(os.path.join(tf_config['encoder_path'],f'tfidf_{field}.pkl'), 'wb') as f:
             pickle.dump(vectorizer, f)
     return feed
 
@@ -399,7 +398,7 @@ def build_user_history_sequences(data):
 
     return user_history
 
-def preprocess_data(feed, action):
+def preprocess_data(feed, action, tf_config):
     """处理feed和user数据并生成统计特征"""
     print("########## 处理数据前 ############")
     # action中并不是所有的电影都出现了feed中，feed中并不是所有电影都出现在action中
@@ -434,7 +433,7 @@ def preprocess_data(feed, action):
 
 
     print("########## 处理数据后 ###############")
-    feed = preprocess_feed(feed) 
+    feed = preprocess_feed(feed, tf_config) 
     feed = preprocess_videoplayseconds(feed)
     data = pd.merge(action, feed, on='feedid')
     data, user_features, video_features = generate_statistical_features(data)
@@ -459,7 +458,7 @@ def get_feed_embedding(data, video_features, feed_embeddings):
     return word2vec_feed_embedding, feed_embeddings # 返回deepwalk和多模态embedding
 
 
-def get_user_embedding(data, word2vec_feed_embedding):
+def get_user_embedding(data, word2vec_feed_embedding, tf_config):
     """获取用户的embedding"""
     print("================ 开始生成user的embedding =======================")
     # 根据用户观看的视频来生成user的embedding
@@ -494,7 +493,8 @@ def get_user_embedding(data, word2vec_feed_embedding):
         for user_id, history in user_history.items()
     }
     # 存储为 JSON 文件
-    with open('/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/features/user_history_sequences.json', 'w', encoding='utf-8') as f:
+    os.makedirs(os.path.dirname(tf_config['features_path']), exist_ok=True)
+    with open(tf_config['user_history_sequences_path'], 'w', encoding='utf-8') as f:
         json.dump(user_history_serializable, f, ensure_ascii=False, indent=4)
     print("用户历史行为序列已存储")
     

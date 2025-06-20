@@ -41,21 +41,20 @@ def build_base_model(features_config, tf_config, is_training=True):
     print("embedding_layers:", embedding_layers)
 
 
-def get_embedding_layer(features_config, tf_config, input_layers):
+def get_embedding_layer(features_config, tf_config, input_layers, word2vec_feed_embedding, user_embeddings, author_embeddings):
     embedding_layers = {}
     # 1. 对sparse feature做embedding层
     for feature_name in sparse:
-        # feedid使用基于deepwalk得到的embedding做初始化
+        # feedid使用基于word2vec得到的embedding做初始化
         if feature_name=='feedid':
-            deepwalk_embeddings = pd.read_csv(tf_config['feed_deepwalk_embedding_path'])
             embedding_matrix = np.zeros((
                 features_config['sparse']['feedid']['vocab_size'], 
                 features_config['sparse']['feedid']['embedding_dim']
             ))
             # 填充embedding矩阵 
-            for _, row in deepwalk_embeddings.iterrows():
+            for _, row in word2vec_feed_embedding.iterrows():
                 feedid = row['feedid']
-                embedding = np.array(eval(row['feed_embedding']))  # 假设embedding存储为字符串格式
+                embedding = np.array(eval(row['word2vec_feed_embedding']))  
                 embedding_matrix[feedid] = embedding
         
             embedding_layers[feature_name] = Embedding(
@@ -65,17 +64,16 @@ def get_embedding_layer(features_config, tf_config, input_layers):
                 embedding_initializer = tf.keras.initializers.Constant(embedding_matrix),
                 name='feedid_embedding'
             )(input_layers['feedid'])
+        
         elif feature_name=='userid':
-            # 对userid使用user embedding做初始化
-            deepwalk_embeddings = pd.read_csv(tf_config['user_embedding_path'])
             embedding_matrix = np.zeros((
                 features_config['sparse']['userid']['vocab_size'], 
                 features_config['sparse']['userid']['embedding_dim']
             ))
             # 填充embedding矩阵 
-            for _, row in deepwalk_embeddings.iterrows():
+            for _, row in user_embeddings.iterrows():
                 feedid = row['userid']
-                embedding = np.array(eval(row['user_embedding']))  # 假设embedding存储为字符串格式
+                embedding = np.array(eval(row['user_embedding'])) 
                 embedding_matrix[feedid] = embedding
         
             embedding_layers[feature_name] = Embedding(
@@ -85,6 +83,24 @@ def get_embedding_layer(features_config, tf_config, input_layers):
                 embedding_initializer = tf.keras.initializers.Constant(embedding_matrix),
                 name='userid_embedding'
             )(input_layers['userid'])
+        
+        elif feature_name=='authorid':
+            embedding_matrix = np.zeros([
+                features_config['sparse']['authorid']['vocab_size'],
+                features_config['sparse']['authorid']['embedding_dim']
+            ])
+            for _, row in author_embeddings.iterrows():
+                authorid = row['authorid']
+                embedding = np.array(eval(row['author_embedding']))
+                embedding_matrix[authorid] = embedding
+            
+            embedding_layers[feature_name] = Embedding(
+                input_dim = features_config['sparse'][feature_name]['vocab_size'],
+                output_dim = features_config['sparse'][feature_name]['embedding_dim'],
+                input_length = 1,
+                embedding_initializer = tf.keras.initializers.Constant(embedding_matrix),
+                name='authorid_embedding'
+            )(input_layers['authorid'])
         else:
             embedding_layers[feature_name] = Embedding(
                 input_dim=features_config['dense'][feature_name]['vocab_size'],
@@ -93,6 +109,7 @@ def get_embedding_layer(features_config, tf_config, input_layers):
                 embedding_initializer = tf.keras.initializers.GlorotNormal(), # 使用Deepwalk生成的embedding进行初始化
                 name=f'{feature_name}_embedding'
             )(input_layers[feature_name])
+    
     # 2. 对sequence feature做embedding层
     for feature_name in sequence:
         embedding_layers[feature_name] = Embedding(
