@@ -27,3 +27,6 @@
 - 生成authorid的embedding
 - 处理数据为模型的输入并获取features_config，并构建模型的input layers和embedding layers
 - TODO：（1）融合feed的多模态embedding和word2vec embedding（2）构建完整模型
+
+2025/6/24
+- 构建模型
