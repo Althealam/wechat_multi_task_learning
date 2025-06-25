@@ -13,10 +13,13 @@ from wandb.keras import WandbCallback
 from tensorflow.keras.losses import BinaryFocalCrossentropy
 import wandb
 from tensorflow.keras.metrics import AUC
+import wandb
+from wandb.keras import WandbCallback
 
 
 # 训练配置
 parser = argparse.ArgumentParser()
+parser.add_argument('--experiment_name', type=str, default='baseline', help='experiment name')
 parser.add_argument('--running_mode', type=str, default='train', help='model running mode(train,export,predict)')
 parser.add_argument('--model_path', type=str, default='/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/models', help='Model save path')
 parser.add_argument('--batch_size', type=int, default=256, help='batch size')
@@ -179,6 +182,13 @@ def main():
     # 获取模型运行配置
     tf_config = extract_tf_flags()
 
+    # 初始化wandb 
+    wandb.init(
+        project = 'MMoE Project Baseline',
+        name = tf_config.get('experiment_name', 'baseline'),
+        config = tf_config
+    )
+
     # 检查 GPU 状态
     gpus = tf.config.list_physical_devices('GPU')
     if gpus:
@@ -292,7 +302,15 @@ def main():
             history = model.fit(
                 train_dataset,
                 validation_data=valid_dataset,
-                epochs = tf_config['epoch']
+                epochs = tf_config['epoch'],
+                callbacks = [ # 设置Wandb监控模型训练情况
+                    WandbCallback(
+                        monitor = 'val_loss',
+                        save_weights_only=True,
+                        log_evaluation = True,
+                        validation_data = valid_dataset
+                    )
+                ]
             )
 
 
