@@ -70,7 +70,7 @@ def extract_tf_flags():
     return config
 
 
-def train_test_split_tfdata(data, feature_names, batch_size=256, shuffle_buffer_size=10000):
+def train_test_split_tfdata(data, tf_config, feature_names, shuffle_buffer_size=10000):
     # 1. 划分训练集和验证集
     train_data = data[data['date_'] < 14]
     valid_data = data[data['date_'] == 14]
@@ -277,9 +277,9 @@ def main():
             model = get_model("base", features_config, tf_config, word2vec_feed_embedding, user_embeddings, author_embeddings)
             # processed_train_features, processed_valid_features, train_labels, valid_labels = train_test_split(data)
             train_dataset, valid_dataset = train_test_split_tfdata(
-                data=data,  
-                feature_names=feature_names,
-                batch_size=tf_config['batch_size']
+                data,  
+                tf_config, 
+                feature_names=feature_names
             )
             # 创建分布式策略（MirroredStrategy 会自动同步多个GPU）
             strategy = tf.distribute.MirroredStrategy()
