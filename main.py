@@ -254,7 +254,7 @@ def main():
 
     # ============= 处理模型输入的数据格式 =================
     print('########## Step5: 开始处理模型输入的数据格式 ############')
-    data_transform = model_input(data)
+    data_transform = model_input_parallel(data) # 多进程处理数据 避免OOM
     data = reduce_mem_usage(data_transform)
     # data_transform.to_csv('/root/repo/Wechat_Multi_Task_Learning_Recommendation_Project/data/data_transform.csv', index=False)
     # print("数据处理完毕，并且成功保存！")

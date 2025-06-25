@@ -19,7 +19,9 @@
 2. embeddings/：使用deepwalk生成的feed embeddings以及基于用户观看的视频生成的user embeddings
 """
 
-
+import gc
+import multiprocessing as mp
+import re
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.decomposition import TruncatedSVD
 from sklearn.preprocessing import OrdinalEncoder
@@ -562,226 +564,170 @@ def user_history_to_dataframe(user_history):
     print("用户的历史交互序列处理成功")
     return pd.DataFrame(records)
 
-def model_input(data, batch_size=200000):
-    """处理数据为模型的输入格式（优化版，避免OOM）"""
-    num_batches = len(data) // batch_size + (1 if len(data) % batch_size != 0 else 0)
-    
-    print(f"总共有 {num_batches} 个 batch")
-    processed_batches = []
 
+
+def process_single_batch(args):
+    """处理单个 batch 的函数，供多进程调用"""
+    batch_data, numeric_features, categorical_features = args
+
+    # 数值特征转 float32
+    batch_data[numeric_features] = batch_data[numeric_features].astype(np.float32)
+
+    # 类别特征转 category（或 float32）
+    batch_data['is_complete'] = batch_data['is_complete'].astype(int)
+    for col in categorical_features:
+        batch_data[col] = batch_data[col].astype('category')
+
+    def split_and_pad_int(series, max_len=None):
+        lists = series.fillna('').astype(str).apply(lambda x: list(map(int, re.findall(r'\d+', x))))
+        if max_len is None:
+            max_len = min(64, lists.apply(len).max())  # 限制最大长度
+        return lists.apply(lambda x: x[:max_len] + [0] * (max_len - len(x)))
+
+    print(f" - 处理序列字段：description")
+    batch_data['description'] = split_and_pad_int(batch_data['description'])
+
+    for col in ['ocr', 'asr']:
+        print(f" - 处理序列字段：{col}")
+        batch_data[col] = split_and_pad_int(batch_data[col])
+
+    for col in ["manual_keyword_list", "machine_keyword_list", "manual_tag_list", "machine_tag_list"]:
+        print(f" - 处理序列字段：{col}")
+        batch_data[col] = split_and_pad_int(batch_data[col])
+
+    for col in [
+        "read_comment_target_behavior_feed",
+        "like_target_behavior_feed",
+        "click_avatar_target_behavior_feed",
+        "forward_target_behavior_feed",
+        "follow_target_behavior_feed",
+        "favorite_target_behavior_feed",
+        "comment_target_behavior_feed",
+        "interactive_history",
+        "non_interactive_history",
+        "finish_history",
+        "unfinish_history"
+    ]:
+        print(f" - 处理序列字段：{col}")
+        batch_data[col] = split_and_pad_int(batch_data[col])
+
+    return batch_data
+
+
+def model_input_parallel(data, numeric_features, categorical_features, batch_size=200000, num_workers=4):
+    """多进程并行处理数据为模型输入格式"""
+    num_batches = len(data) // batch_size + (1 if len(data) % batch_size != 0 else 0)
+    print(f"总共有 {num_batches} 个 batch，使用 {num_workers} 个进程并行处理")
+
+    args_list = []
     for i in range(num_batches):
-        print(f"\n正在处理第 {i+1} 个 batch")
         start = i * batch_size
         end = start + batch_size
-        batch_data = data[start:end].copy()  # 避免 SettingWithCopyWarning
+        batch_data = data.iloc[start:end].copy()  # 必须 copy，防止数据共享冲突
+        args_list.append((batch_data, numeric_features, categorical_features))
 
-        # ======== 数值型特征 =========
-        print("Step1: 处理数值型特征")
-        batch_data[numeric_features] = batch_data[numeric_features].astype(np.float32)
+    # 多进程 pool
+    with mp.get_context("fork").Pool(processes=num_workers) as pool:
+        results = pool.map(process_single_batch, args_list)
 
-        # ======== 类别型特征 =========
-        print("Step2: 处理类别型特征")
-        batch_data['is_complete'] = batch_data['is_complete'].astype(int)
-        batch_data[categorical_features] = batch_data[categorical_features].astype(np.float32)
-
-        # ======== 序列特征 =========
-        print("Step3: 处理序列型特征")
-
-        def split_and_pad(series):
-            series = series.fillna('').astype(str).str.split().apply(lambda x: [int(i) for i in x] if x else [])
-            max_len = series.apply(len).max()
-            return series.apply(lambda x: x + [0] * (max_len - len(x)))
-
-        # 描述文本
-        print(" - description")
-        batch_data['description'] = split_and_pad(batch_data['description'])
-
-        # OCR / ASR 特征
-        for col in ['ocr', 'asr']:
-            print(f" - {col}")
-            batch_data[col] = batch_data[col].fillna('').replace('-1', '').astype(str).str.split().apply(
-                lambda x: [int(i) for i in x if i.strip().isdigit()] if x else []
-            )
-            max_len = batch_data[col].apply(len).max()
-            batch_data[col] = batch_data[col].apply(lambda x: x + [0] * (max_len - len(x)))
-
-        # 关键词与标签类特征
-        for col in ["manual_keyword_list", "machine_keyword_list", "manual_tag_list", "machine_tag_list"]:
-            print(f" - {col}")
-            batch_data[col] = batch_data[col].fillna('').astype(str).str.strip('[]').str.split().apply(
-                lambda x: [int(i) for i in x if i.strip().isdigit()] if x else []
-            )
-            max_len = batch_data[col].apply(len).max()
-            batch_data[col] = batch_data[col].apply(lambda x: x + [0] * (max_len - len(x)))
-
-        # 行为序列类特征
-        for col in [
-            "read_comment_target_behavior_feed",
-            "like_target_behavior_feed",
-            "click_avatar_target_behavior_feed",
-            "forward_target_behavior_feed",
-            "follow_target_behavior_feed",
-            "favorite_target_behavior_feed",
-            "comment_target_behavior_feed",
-            "interactive_history",
-            "non_interactive_history",
-            "finish_history",
-            "unfinish_history"
-        ]:
-            print(f" - {col}")
-            batch_data[col] = batch_data[col].fillna('').astype(str).str.strip('[]').str.split(',').apply(
-                lambda x: [int(i.strip()) for i in x if i.strip().isdigit()] if x else []
-            )
-            max_len = batch_data[col].apply(len).max()
-            batch_data[col] = batch_data[col].apply(lambda x: x + [0] * (max_len - len(x)))
-
-        # 加入当前 batch 到总结果中
-        processed_batches.append(batch_data)
-
-        # 清理内存
-        del batch_data
-        gc.collect()
-
-    print("\n拼接所有 batch...")
-    final_data = pd.concat(processed_batches, ignore_index=True)
-    del processed_batches
+    print("拼接所有 batch...")
+    final_data = pd.concat(results, ignore_index=True)
+    del results
     gc.collect()
 
-    print("model_input 处理完成！")
+    print("model_input_parallel 处理完成！")
     return final_data
 
 
 # def model_input(data, batch_size=200000):
-#     """处理数据为模型的输入格式"""
+#     """处理数据为模型的输入格式（优化版，避免OOM）"""
 #     num_batches = len(data) // batch_size + (1 if len(data) % batch_size != 0 else 0)
     
-#     # 假设这些变量在函数外部已经定义
-#     global numeric_features, categorical_features
-#     print(f"总共有{num_batches}个batch")
+#     print(f"总共有 {num_batches} 个 batch")
+#     processed_batches = []
+
 #     for i in range(num_batches):
-#         print(f"正在处理第 {i+1} 个 batch")
+#         print(f"\n正在处理第 {i+1} 个 batch")
 #         start = i * batch_size
 #         end = start + batch_size
 #         batch_data = data[start:end].copy()  # 避免 SettingWithCopyWarning
-        
-#         print("======== 正在处理数值型特征 ===========")
-#         # 将numeric_features变成float32
+
+#         # ======== 数值型特征 =========
+#         print("Step1: 处理数值型特征")
 #         batch_data[numeric_features] = batch_data[numeric_features].astype(np.float32)
 
-#         print("======== 正在处理类别型特征 ===========")
+#         # ======== 类别型特征 =========
+#         print("Step2: 处理类别型特征")
 #         batch_data['is_complete'] = batch_data['is_complete'].astype(int)
-#         batch_data[categorical_features]=batch_data[categorical_features].astype(np.float32)
+#         batch_data[categorical_features] = batch_data[categorical_features].astype(np.float32)
 
-#         print("======== 开始处理序列型特征 ===========")
-#         print("Step1: 处理description")
-#         # 1. 处理description
+#         # ======== 序列特征 =========
+#         print("Step3: 处理序列型特征")
+
 #         def split_and_pad(series):
-#             series = series.str.split().apply(lambda x: [int(i) for i in x] if x else [])
+#             series = series.fillna('').astype(str).str.split().apply(lambda x: [int(i) for i in x] if x else [])
 #             max_len = series.apply(len).max()
 #             return series.apply(lambda x: x + [0] * (max_len - len(x)))
-        
+
+#         # 描述文本
+#         print(" - description")
 #         batch_data['description'] = split_and_pad(batch_data['description'])
 
-#         print("Step2: 处理ocr和asr")
-#         # 2. 处理ocr和asr
+#         # OCR / ASR 特征
 #         for col in ['ocr', 'asr']:
-#             batch_data[col] = batch_data[col].replace('-1', '').str.split().apply(lambda x: [int(i) for i in x] if x else [])
-#             max_len = batch_data[col].apply(len).max()
-#             batch_data[col] = batch_data[col].apply(lambda x: [0] * max_len if not x else x + [0] * (max_len - len(x)))
-
-#         print("Step3: 处理keyword和tag的manual和machine特征")
-#         # 3. 处理manual_keyword_list, machine_keyword_list, manual_tag_list, machine_tag_list
-#         for col in ["manual_keyword_list", "machine_keyword_list", "manual_tag_list", "machine_tag_list"]:
-#             batch_data[col] = batch_data[col].astype(str).str.strip('[]').str.split().apply(lambda x: [int(i) for i in x] if x else [])
+#             print(f" - {col}")
+#             batch_data[col] = batch_data[col].fillna('').replace('-1', '').astype(str).str.split().apply(
+#                 lambda x: [int(i) for i in x if i.strip().isdigit()] if x else []
+#             )
 #             max_len = batch_data[col].apply(len).max()
 #             batch_data[col] = batch_data[col].apply(lambda x: x + [0] * (max_len - len(x)))
 
-#         print("Step4: 处理剩下的序列特征")
-#         # 4. 处理剩下的序列特征
-#         for col in ["read_comment_target_behavior_feed",
-#                     "like_target_behavior_feed",
-#                     "click_avatar_target_behavior_feed",
-#                     "forward_target_behavior_feed",
-#                     "follow_target_behavior_feed",
-#                     "favorite_target_behavior_feed",
-#                     "comment_target_behavior_feed",
-#                     "interactive_history",
-#                     "non_interactive_history",
-#                     "finish_history",
-#                     "unfinish_history"]:
-#             batch_data[col] = batch_data[col].astype(str).str.strip('[]').str.split(',').apply(lambda x: [int(i.strip()) for i in x if i.strip()] if x else [])
+#         # 关键词与标签类特征
+#         for col in ["manual_keyword_list", "machine_keyword_list", "manual_tag_list", "machine_tag_list"]:
+#             print(f" - {col}")
+#             batch_data[col] = batch_data[col].fillna('').astype(str).str.strip('[]').str.split().apply(
+#                 lambda x: [int(i) for i in x if i.strip().isdigit()] if x else []
+#             )
 #             max_len = batch_data[col].apply(len).max()
-#             batch_data[col] = batch_data[col].apply(lambda x: [0] * max_len if not x else x + [0] * (max_len - len(x)))
-        
-#         data[start:end] = batch_data
-#         # 手动释放 batch_data 的内存
+#             batch_data[col] = batch_data[col].apply(lambda x: x + [0] * (max_len - len(x)))
+
+#         # 行为序列类特征
+#         for col in [
+#             "read_comment_target_behavior_feed",
+#             "like_target_behavior_feed",
+#             "click_avatar_target_behavior_feed",
+#             "forward_target_behavior_feed",
+#             "follow_target_behavior_feed",
+#             "favorite_target_behavior_feed",
+#             "comment_target_behavior_feed",
+#             "interactive_history",
+#             "non_interactive_history",
+#             "finish_history",
+#             "unfinish_history"
+#         ]:
+#             print(f" - {col}")
+#             batch_data[col] = batch_data[col].fillna('').astype(str).str.strip('[]').str.split(',').apply(
+#                 lambda x: [int(i.strip()) for i in x if i.strip().isdigit()] if x else []
+#             )
+#             max_len = batch_data[col].apply(len).max()
+#             batch_data[col] = batch_data[col].apply(lambda x: x + [0] * (max_len - len(x)))
+
+#         # 加入当前 batch 到总结果中
+#         processed_batches.append(batch_data)
+
+#         # 清理内存
 #         del batch_data
-    
-#     return data
+#         gc.collect()
 
-# def model_input(data):
-#     """处理数据为模型的输入格式"""
-#     print("======== 正在处理数值型特征 ===========")
-#     # 将numeric_features变成float32
-#     data[numeric_features] = data[numeric_features].astype(float)
+#     print("\n拼接所有 batch...")
+#     final_data = pd.concat(processed_batches, ignore_index=True)
+#     del processed_batches
+#     gc.collect()
 
-#     # 将类别型变成float32
-#     print("======== 正在处理类别型特征 ===========")
-#     data['is_complete'] = data['is_complete'].astype(int)
-#     data[categorical_features]=data[categorical_features].astype(float)
+#     print("model_input 处理完成！")
+#     return final_data
 
-#     print("======== 开始处理序列型特征 ===========")
-#     print("Step1: 处理description")
-#     # 1. 处理description
-#     data['description'] = data['description'].apply(lambda x: list(map(int, x.split())))
-#     max_len_description = data['description'].apply(len).max()
-#     data['description'] = data['description'].apply(
-#         lambda x: x + [0] * (max_len_description - len(x)) if len(x) < max_len_description else x
-#     )
 
-#     # 2. 处理ocr和asr
-#     print("Step2: 处理ocr和asr")
-#     for col in ['ocr', 'asr']:
-#         data[col] = data[col].apply(
-#             lambda x: [] if x == '-1' else list(map(int, x.split()))
-#         )
-#         max_len = data[col].apply(len).max()
-#         data[col] = data[col].apply(
-#             lambda x: [0] * max_len if len(x) == 0 else x + [0] * (max_len - len(x))
-#         )
-
-#     # 3. 处理manual_keyword_list, machine_keyword_list, manual_tag_list, machine_tag_list
-#     print("Step3: 处理keyword和tag的manual和machine特征")
-#     for col in ["manual_keyword_list","machine_keyword_list","manual_tag_list","machine_tag_list"]:
-#         data[col] = data[col].astype(str)
-#         # 先去掉两侧的空格，然后再按照空格进行分隔
-#         data[col] = data[col].str.strip('[]').str.split().apply(
-#         lambda x: list(map(int, x))
-#     )
-
-#     # 4. 处理剩下的序列特征
-#     print("Step4: 处理剩下的序列特征")
-#     for col in ["read_comment_target_behavior_feed",
-#         "like_target_behavior_feed",
-#         "click_avatar_target_behavior_feed",
-#         "forward_target_behavior_feed",
-#         "follow_target_behavior_feed",
-#         "favorite_target_behavior_feed",
-#         "comment_target_behavior_feed",
-#         "interactive_history",
-#         "non_interactive_history",
-#         "finish_history",
-#         "unfinish_history"]:
-#         data[col] = data[col].str.strip('[]')
-#         data[col] = data[col].apply(
-#             lambda x: [] if x == '' else list(map(int, x.split(',')))
-#         )
-#         max_len = data[col].apply(len).max()
-#         data[col] = data[col].apply(
-#             lambda x: [0] * max_len if len(x) == 0 else x + [0] * (max_len - len(x))
-#         )
-
-#     return data
 
 
 def get_features_config(data, tf_config, feed, user_features):
