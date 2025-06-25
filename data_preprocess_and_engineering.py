@@ -784,7 +784,7 @@ def model_input(data, batch_size=200000):
 #     return data
 
 
-def get_features_config(data, feed, user_features):
+def get_features_config(data, tf_config, feed, user_features):
     features_config={
         'dense': dense,
         'sequence': {},
@@ -805,7 +805,7 @@ def get_features_config(data, feed, user_features):
         else:
             vocab_size = max(all_ids) + 10  # 词表大小
 
-        embedding_dim = 128  # 固定大小
+        embedding_dim = tf_config['embedding_dim']  # 固定大小
 
         features_config['sequence'][feat] = {
             'vocab_size': vocab_size,
@@ -827,14 +827,14 @@ def get_features_config(data, feed, user_features):
             embedding_dim = len(data['feed_word2vec_embedding'][0])
         elif feat=='bgm_singer_id':
             vocab_size = max(feed['bgm_singer_id'])+10
-            embedding_dim = 128
+            embedding_dim = tf_config['embedding_dim']
         elif feat=='bgm_song_id':
             vocab_size = max(feed['bgm_song_id'])+10
-            embedding_dim = 128
+            embedding_dim = tf_config['embedding_dim']
         else:
             vocab_size=data[feat].nunique()+1
             # embedding_dim = min(64, max(8, int(4 * (1 + math.log(vocab_size)))))
-            embedding_dim = 128 # 手动设置为128
+            embedding_dim = tf_config['embedding_dim'] # 手动设置为128
 
         features_config['sparse'][feat]={
             'vocab_size': vocab_size,

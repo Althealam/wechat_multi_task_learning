@@ -38,4 +38,5 @@
 2025/6/25
 - 构建模型：已实现通过DIN提取用户历史行为序列和目标向量之间的注意力权重，同时实现MMoE的构建
 - 修正DIN Attention报错，跑通模型训练代码
+- 修改数据集为tf.datasets，使用Tesla-V100-SXM2-32GB进行分布式训练，CPU8核，MEM32G，CPU2卡
 - TODO：增加Tensorboard或者wandb监控模型训练情况；解决爆内存的问题
