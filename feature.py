@@ -172,7 +172,7 @@ dense = [
     "read_comment", # target
     "comment", # target
     "like", # 辅助
-    "favorite" # 非01变量
+    "favorite", # 非01变量
     "play",  # 非01变量
     "stay",
     "svd_manual_tag_list_1",
@@ -297,3 +297,161 @@ sequence=[
 
 feature_names = dense+sparse+sequence
 
+
+### 按照feed, userhistory, context进行拆分
+feed_features = [
+    # 基础ID
+    "feedid",
+    "authorid",
+    "bgm_song_id",
+    "bgm_singer_id",
+    
+    # 内容元数据
+    "description",
+    "ocr",
+    "asr",
+    "manual_keyword_list",
+    "machine_keyword_list",
+    
+    # 内容统计特征
+    "video_user_nunique",
+    "video_14d_exposure",
+    "feed_read_comment_sum",
+    "feed_read_comment_var",
+    "feed_read_comment_mean",
+    "feed_read_comment_median",
+    "feed_comment_sum",
+    "feed_comment_var",
+    "feed_comment_mean",
+    "feed_comment_median",
+    "feed_like_sum",
+    "feed_like_var",
+    "feed_like_mean",
+    "feed_like_median",
+    "feed_play_sum",
+    "feed_play_var",
+    "feed_play_mean",
+    "feed_play_median",
+    "feed_click_avatar_sum",
+    "feed_click_avatar_var",
+    "feed_click_avatar_mean",
+    "feed_click_avatar_median",
+    "feed_forward_sum",
+    "feed_forward_var",
+    "feed_forward_mean",
+    "feed_forward_median",
+    "feed_follow_sum",
+    "feed_follow_var",
+    "feed_follow_mean",
+    "feed_follow_median",
+    "feed_favorite_sum",
+    "feed_favorite_var",
+    "feed_favorite_mean",
+    "feed_favorite_median",
+    "video_complete_rate",
+    "video_like_conversion",
+    
+    # SVD特征（可能表示内容标签或关键词）
+    "svd_manual_tag_list_1",
+    "svd_manual_tag_list_2",
+    "svd_manual_tag_list_3",
+    "svd_manual_tag_list_4",
+    "svd_manual_tag_list_5",
+    "svd_manual_keyword_list_1",
+    "svd_manual_keyword_list_2",
+    "svd_manual_keyword_list_3",
+    "svd_manual_keyword_list_4",
+    "svd_manual_keyword_list_5",
+    "svd_machine_tag_list_1",
+    "svd_machine_tag_list_2",
+    "svd_machine_tag_list_3",
+    "svd_machine_tag_list_4",
+    "svd_machine_tag_list_5",
+    "svd_machine_keyword_list_1",
+    "svd_machine_keyword_list_2",
+    "svd_machine_keyword_list_3",
+    "svd_machine_keyword_list_4",
+    "svd_machine_keyword_list_5",
+]
+
+user_history_features = [
+    # 用户ID
+    "userid",
+    
+    # 用户历史行为序列
+    "read_comment_target_behavior_feed",
+    "like_target_behavior_feed",
+    "click_avatar_target_behavior_feed",
+    "forward_target_behavior_feed",
+    "follow_target_behavior_feed",
+    "favorite_target_behavior_feed",
+    "comment_target_behavior_feed",
+    "interactive_history",
+    "non_interactive_history",
+    "finish_history",
+    "unfinish_history",
+    
+    # 用户统计特征
+    "user_7d_feed_nunique",
+    "user_14d_exposure",
+    "user_read_comment_sum",
+    "user_read_comment_var",
+    "user_read_comment_mean",
+    "user_read_comment_median",
+    "user_comment_sum",
+    "user_comment_var",
+    "user_comment_mean",
+    "user_comment_median",
+    "user_like_sum",
+    "user_like_var",
+    "user_like_mean",
+    "user_like_median",
+    "user_play_sum",
+    "user_play_var",
+    "user_play_mean",
+    "user_play_median",
+    "user_stay_sum",
+    "user_stay_var",
+    "user_stay_mean",
+    "user_stay_median",
+    "user_click_avatar_sum",
+    "user_click_avatar_var",
+    "user_click_avatar_mean",
+    "user_click_avatar_median",
+    "user_forward_sum",
+    "user_forward_var",
+    "user_forward_mean",
+    "user_forward_median",
+    "user_follow_sum",
+    "user_follow_var",
+    "user_follow_mean",
+    "user_follow_median",
+    "user_favorite_sum",
+    "user_favorite_var",
+    "user_favorite_mean",
+    "user_favorite_median",
+    "user_complete_rate",
+    "user_like_conversion",
+]
+
+# 交互发生时的环境或者辅助特征
+context_features = [
+    # 基本上下文
+    "date_",
+    "device",
+    
+    # 交互特征
+    "videoplayseconds_bin_encoded",
+    "is_complete",
+    "follow",
+    "favorite",
+    "play",
+    "stay",
+    
+    # 目标变量（这些通常不作为输入特征，但在数据中存在）
+    "click_avatar",  # target
+    "forward",       # target
+    "read_comment",  # target
+    "comment",       # target
+    "like",          # 辅助/目标
+]
