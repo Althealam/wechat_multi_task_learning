@@ -11,6 +11,7 @@ from model import *
 from wandb.keras import WandbCallback
 from tensorflow.keras.losses import BinaryFocalCrossentropy
 import wandb
+from tensorflow.keras.metrics import AUC
 
 
 # 训练配置
@@ -65,7 +66,7 @@ def extract_tf_flags():
     return config
 
 
-def get_model_input(data):
+def train_test_split(data):
     # 划分训练集和验证集
     train_data=data[data['date_']<14]
     valid_data=data[data['date_']==14]
@@ -91,7 +92,7 @@ def get_model_input(data):
     for feature in train_features:
         # 处理 list of list（如行为序列等）
         if isinstance(feature[0], list):
-            maxlen = max([len(x) for x in feature])  # 或者自己计算 max([len(x) for x in feature])
+            maxlen = max([len(x) for x in feature]) 
             padded = pad_sequences(feature, maxlen=maxlen, padding='post', truncating='post')
             processed_train_features.append(np.array(padded, dtype=np.int32))
         # 处理 list([0]) 类似的一维数据
@@ -106,7 +107,7 @@ def get_model_input(data):
     for feature in valid_features:
         # 处理 list of list（如行为序列等）
         if isinstance(feature[0], list):
-            maxlen = max([len(x) for x in feature])  # 或者自己计算 max([len(x) for x in feature])
+            maxlen = max([len(x) for x in feature]) 
             padded = pad_sequences(feature, maxlen=maxlen, padding='post', truncating='post')
             processed_valid_features.append(np.array(padded, dtype=np.int32))
         # 处理 list([0]) 类似的一维数据
@@ -147,7 +148,7 @@ def main():
     feed = pd.read_csv(tf_config['feed_info_path'])
     action = pd.read_csv(tf_config['user_action_path'])
     ## TODO: 这里要取消对action的限制
-    action = action.head(1000000) # 限制action数量
+    action = action.head(10000) # 限制action数量
     feed_embeddings = pd.read_csv(tf_config['feed_embeddings_path'])
 
     # ============= 进行数据处理和特征工程 ============
@@ -208,6 +209,33 @@ def main():
         pass
     else: # 训练模式 
         model = get_model("base", features_config, tf_config, word2vec_feed_embedding, user_embeddings, author_embeddings)
+        processed_train_features, processed_valid_features, train_labels, valid_labels = train_test_split(data)
+        model.compile(
+            optimizer='adam',
+            loss={
+                'click_avatar_output': 'binary_crossentropy',
+                'read_comment_output': 'binary_crossentropy',
+                'like_output': 'binary_crossentropy',
+                'forward_output': 'binary_crossentropy'
+            },
+            metrics={
+                'click_avatar_output': ['accuracy', AUC(name='auc', curve='ROC')],
+                'read_comment_output': ['accuracy', AUC(name='auc', curve='ROC')],
+                'like_output': ['accuracy', AUC(name='auc', curve='ROC')],
+                'forward_output': ['accuracy', AUC(name='auc', curve='ROC')]
+            }
+        )
+        # 开始训练
+        batch_size = 256
+        epochs = 10
+        history = model.fit(
+            processed_train_features,
+            train_labels,
+            batch_size=batch_size,
+            epochs=epochs,
+            validation_data=(processed_valid_features, valid_labels),
+            verbose=1
+        )
 
 
 if __name__=='__main__':
