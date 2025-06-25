@@ -790,19 +790,24 @@ def get_features_config(data, feed, user_features):
         'sequence': {},
         'sparse': {}
     }
-    # 基于features文件中的特征生成配置文件
     for feat in sequence:
         print("正在生成{}的特征配置".format(feat))
-        if isinstance(data[feat].iloc[0], str):  # 检查是否是字符串格式，因为将数组保存为csv文件时会自动解析为字符串，导致无法正确读取数组
+        if isinstance(data[feat].iloc[0], str):  # 字符串转list
             data[feat] = data[feat].str.strip('[]').str.split(',').apply(
                 lambda x: list(map(int, x)) if x != [''] else []
             )
-        max_len=data[feat].apply(lambda x: len(x) if isinstance(x, list) else 0).max()
-        
-        vocab_size = max_len + 10  # 加缓冲值
-        embedding_dim = 128 # 这里手动设置为128
+        max_len = data[feat].apply(lambda x: len(x) if isinstance(x, list) else 0).max()
 
-        features_config['sequence'][feat]={
+        # 取序列中所有元素的最大值，先flatten所有list再找最大值
+        all_ids = [id_ for seq in data[feat] for id_ in seq if isinstance(seq, list)]
+        if len(all_ids) == 0:
+            vocab_size = 1  # 处理极端空序列情况
+        else:
+            vocab_size = max(all_ids) + 10  # 词表大小
+
+        embedding_dim = 128  # 固定大小
+
+        features_config['sequence'][feat] = {
             'vocab_size': vocab_size,
             'embedding_dim': embedding_dim,
             'max_len': max_len
@@ -820,6 +825,12 @@ def get_features_config(data, feed, user_features):
         elif feat=='feedid':
             vocab_size = max(feed['feedid'])+10
             embedding_dim = len(data['feed_word2vec_embedding'][0])
+        elif feat=='bgm_singer_id':
+            vocab_size = max(feed['bgm_singer_id'])+10
+            embedding_dim = 128
+        elif feat=='bgm_song_id':
+            vocab_size = max(feed['bgm_song_id'])+10
+            embedding_dim = 128
         else:
             vocab_size=data[feat].nunique()+1
             # embedding_dim = min(64, max(8, int(4 * (1 + math.log(vocab_size)))))

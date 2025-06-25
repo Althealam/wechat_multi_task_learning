@@ -22,7 +22,7 @@ from layers import *
 
 def get_model(model_name, feature_config, tf_config, word2vec_feed_embedding, user_embeddings, author_embeddings, is_training=False):
     if model_name=='base':
-        return build_base_model(feature_config, tf_config, is_training, word2vec_feed_embedding, user_embeddings, author_embeddings)
+        return build_base_model(feature_config, word2vec_feed_embedding, user_embeddings, author_embeddings)
     else:
         raise NotImplementedError
 
@@ -184,7 +184,7 @@ class MMoE(Layer):
 
 
 
-def build_model(features_config, word2vec_feed_embedding, user_embeddings, author_embeddings):
+def build_base_model(features_config, word2vec_feed_embedding, user_embeddings, author_embeddings):
     # ============== 输入层 ===============
     input_layers = get_input_layers(features_config)
     # ============= 嵌入层构建 ============
@@ -343,7 +343,8 @@ def build_model(features_config, word2vec_feed_embedding, user_embeddings, autho
         context_encoder['follow'],
         context_encoder['favorite'],
         context_encoder['play'],
-        context_encoder['stay']
+        context_encoder['stay'],
+        context_encoder['comment']
     ])
 
     # 拼接所有特征
@@ -358,8 +359,8 @@ def build_model(features_config, word2vec_feed_embedding, user_embeddings, autho
     read_comment_tower = Dense(64, activation='relu')(task_specific_outputs[0])
     read_comment_output = Dense(1, activation='sigmoid', name='read_comment_output')(read_comment_tower)
 
-    comment_tower = Dense(64, activation='relu')(task_specific_outputs[1])
-    comment_output = Dense(1, activation='sigmoid', name='comment_output')(comment_tower)
+    like_tower = Dense(64, activation='relu')(task_specific_outputs[1])
+    like_output = Dense(1, activation='sigmoid', name='like_output')(like_tower)
 
     click_avatar_tower = Dense(64, activation='relu')(task_specific_outputs[2])
     click_avatar_output = Dense(1, activation='sigmoid', name='click_avatar_output')(click_avatar_tower)
@@ -371,7 +372,7 @@ def build_model(features_config, word2vec_feed_embedding, user_embeddings, autho
         inputs=list(input_layers.values()),
         outputs=[
             read_comment_output,
-            comment_output,
+            like_output,
             click_avatar_output,
             forward_output
         ]

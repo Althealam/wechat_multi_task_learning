@@ -64,6 +64,61 @@ def extract_tf_flags():
     logging.info("==================== END FLAGS ====================")
     return config
 
+
+def get_model_input(data):
+    # 划分训练集和验证集
+    train_data=data[data['date_']<14]
+    valid_data=data[data['date_']==14]
+    print("训练集数量：",len(train_data))
+    print("验证集数量：", len(valid_data))
+
+    train_features = [np.array(train_data[feat].values) for feat in feature_names]
+    valid_features = [np.array(valid_data[feat].values) for feat in feature_names]
+    train_labels = {
+        'click_avatar_output': np.array(train_data['click_avatar'].values, dtype=np.int32),
+        'read_comment_output': np.array(train_data['read_comment'].values, dtype=np.int32),
+        'like_output': np.array(train_data['like'].values, dtype=np.int32),
+        'forward_output': np.array(train_data['forward'].values, dtype=np.int32),
+    }
+    valid_labels = {
+        'click_avatar_output': np.array(valid_data['click_avatar'].values, dtype=np.int32),
+        'read_comment_output': np.array(valid_data['read_comment'].values, dtype=np.int32),
+        'like_output': np.array(valid_data['like'].values, dtype=np.int32),
+        'forward_output': np.array(valid_data['forward'].values, dtype=np.int32),
+    }
+
+    processed_train_features = []
+    for feature in train_features:
+        # 处理 list of list（如行为序列等）
+        if isinstance(feature[0], list):
+            maxlen = max([len(x) for x in feature])  # 或者自己计算 max([len(x) for x in feature])
+            padded = pad_sequences(feature, maxlen=maxlen, padding='post', truncating='post')
+            processed_train_features.append(np.array(padded, dtype=np.int32))
+        # 处理 list([0]) 类似的一维数据
+        elif isinstance(feature[0], (list, np.ndarray)):
+            flattened = np.array([x[0] for x in feature], dtype=np.float32)
+            processed_train_features.append(flattened)
+        # 正常的一维数组直接加入
+        else:
+            processed_train_features.append(np.array(feature))
+    
+    processed_valid_features = []
+    for feature in valid_features:
+        # 处理 list of list（如行为序列等）
+        if isinstance(feature[0], list):
+            maxlen = max([len(x) for x in feature])  # 或者自己计算 max([len(x) for x in feature])
+            padded = pad_sequences(feature, maxlen=maxlen, padding='post', truncating='post')
+            processed_valid_features.append(np.array(padded, dtype=np.int32))
+        # 处理 list([0]) 类似的一维数据
+        elif isinstance(feature[0], (list, np.ndarray)):
+            flattened = np.array([x[0] for x in feature], dtype=np.float32)
+            processed_valid_features.append(flattened)
+        # 正常的一维数组直接加入
+        else:
+            processed_valid_features.append(np.array(feature))
+    
+    return processed_train_features, processed_valid_features, train_labels, valid_labels
+
 def main():
     # 获取模型运行配置
     tf_config = extract_tf_flags()
@@ -91,6 +146,8 @@ def main():
     # 读取所需要的数据
     feed = pd.read_csv(tf_config['feed_info_path'])
     action = pd.read_csv(tf_config['user_action_path'])
+    ## TODO: 这里要取消对action的限制
+    action = action.head(1000000) # 限制action数量
     feed_embeddings = pd.read_csv(tf_config['feed_embeddings_path'])
 
     # ============= 进行数据处理和特征工程 ============
@@ -144,15 +201,13 @@ def main():
     save_json_file(tf_config['features_config_path'], features_config)
     
     # # # ============= 开始构建模型 ================
-    # build_base_model(features_config, tf_config)
-    # if tf_config.get("running_mode")=='export':
-    #     serving_model = get_model(tf_config.get('model_name'), features_config, tf_config, word2vec_feed_embedding, user_embeddings, author_embeddings, is_training=False)
-    #     tf.saved_model.save(serving_model, tf_config['model_path']+'/exported')
-    # elif tf_config.get('running_mode')=='predict':
-    #     pass
-    # else:
-    #     model = get_model("base", features_config, tf_config)
-    #     model.summary()
+    if tf_config.get("running_mode")=='export':
+        serving_model = get_model(tf_config.get('model_name'), features_config, tf_config, word2vec_feed_embedding, user_embeddings, author_embeddings, is_training=False)
+        tf.saved_model.save(serving_model, tf_config['model_path']+'/exported')
+    elif tf_config.get('running_mode')=='predict': # 预测
+        pass
+    else: # 训练模式 
+        model = get_model("base", features_config, tf_config, word2vec_feed_embedding, user_embeddings, author_embeddings)
 
 
 if __name__=='__main__':

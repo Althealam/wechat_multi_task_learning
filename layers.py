@@ -25,16 +25,21 @@ class DinAttention(Layer):
         super(DinAttention, self).build(input_shape)
 
     def call(self, inputs):
-        # inputs[0]: 目标特征 (batch_size, emb_dim)
-        # inputs[1]: 历史序列特征 (batch_size, max_len, emb_dim)
-        target = inputs[0]
-        history = inputs[1]
-        # 计算注意力得分
-        score = tf.tanh(tf.matmul(target, self.W1) + tf.matmul(history, self.W2))
-        score = tf.matmul(score, self.V)
-        attention_weights = tf.nn.softmax(score, axis=1)
-        output = tf.reduce_sum(history * attention_weights, axis=1)
+        target = inputs[0]  # (batch_size, emb_dim)
+        history = inputs[1] # (batch_size, max_len, emb_dim)
+        max_len = tf.shape(history)[1]
+
+        # 扩展target维度，和history在时间步上对齐
+        target_expanded = tf.expand_dims(target, axis=1)  # (batch_size, 1, emb_dim)
+        target_expanded = tf.tile(target_expanded, [1, max_len, 1])  # (batch_size, max_len, emb_dim)
+
+        score = tf.tanh(tf.matmul(target_expanded, self.W1) + tf.matmul(history, self.W2))  # 都是 (batch_size, max_len, emb_dim)
+        score = tf.matmul(score, self.V)  # (batch_size, max_len, 1)
+        attention_weights = tf.nn.softmax(score, axis=1)  # (batch_size, max_len, 1)
+
+        output = tf.reduce_sum(history * attention_weights, axis=1)  # (batch_size, emb_dim)
         return output
+
 
     def compute_output_shape(self, input_shape):
         return (input_shape[0][0], input_shape[0][-1])
