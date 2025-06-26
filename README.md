@@ -15,6 +15,15 @@
 6. 使用Wandb进行模型监控而不是TensorBoard
 7. 使用CPU多进程数据处理
 
+## 项目目录
+* main：主函数
+* model：模型定义
+* utils：工具函数
+* data_preprocess_and_engineering：数据预处理和特征工程
+* feature：特征
+* feature_embedding：表征生成
+* layers：自定义层
+
 ## 更新记录
 2025/6/14:
 - 数据预处理：填充缺失值，播放时长离散化
